@@ -7,7 +7,9 @@
 #define TOKENS_BUFFER_SIZE (1 << 8)
 
 #define DEBUG_PREPROCESSOR false
-#define DEBUG_TOKENIZER false
+#define DEBUG_TOKENIZE false
+#define DEBUG_TOKENIZER true
+#define DEBUG_TEST_TOKENIZER true
 
 // A list of tokens that can be recognised.
 typedef enum {
@@ -162,12 +164,12 @@ state match(char* input, char* expected, state result) {
 	}
 }
 
-token get_token(char* input) {
+token tokenize(char* input) {
 	char* ci = input;
 	state current_state = BEGIN_STATE;
 	token tk;
 	while (current_state != END_STATE) {
-		if (DEBUG_TOKENIZER) { 
+		if (DEBUG_TOKENIZE) { 
 			printf("CURRENT STATE: %d\n", current_state);
 			printf("WORD REMAINING: %s\n", ci);
 		}
@@ -694,10 +696,32 @@ token get_token(char* input) {
 	}
 }
 
-token tokenizer() {
+/* tokenizer:
+*	Takes preprocessed input and outputs a series of tokens.
+*/
+token* tokenizer(char** input, token* output) {
+	// For each word in input
+	char** lexemes = input;
+	char* lexeme = *input;
+	token* dest = output;
+	while (lexeme != NULL) {
+
+		if (DEBUG_TEST_TOKENIZER) {
+			printf("READ : %s\n", lexeme);
+		}
+
+		token tk = tokenize(lexeme);
+		
+		if (DEBUG_TEST_TOKENIZER) {
+			printf("WROTE %d to %d\n", tk, dest - output);
+		}
+		lexeme = *lexemes++;
+		dest++;
+	}
 }
 
 /* is_whitespace:
+* 
 */
  bool is_whitespace(char chr) {
 	switch (chr) {
@@ -770,7 +794,7 @@ char* preprocessor(char* input, char **output) {
 }
 
 void test_tokenizer_case(char* gave, token expected) {
-	token got = get_token(gave);
+	token got = tokenize(gave);
 	printf("Gave %s, expected %d, got %d.\n", gave, expected, got);
 }
 
@@ -841,11 +865,11 @@ void test_tokenizer() {
 */
 void main(int argc, char* argv[])
 {
+	if (DEBUG_TEST_TOKENIZER) {
+		test_tokenizer();
+	}
 	char *words[PREPROCESSOR_BUFFER_SIZE];
-	preprocessor("add add[][][]", words);
-
+	preprocessor("add add srem sub to val void", words);
 	token tokens[TOKENS_BUFFER_SIZE];
-	
-	test_tokenizer();
-
+	tokenizer(words, tokens);	
 }
