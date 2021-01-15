@@ -7,7 +7,7 @@
 #define TOKENS_BUFFER_SIZE (1 << 8)
 
 #define DEBUG_PREPROCESSOR false
-#define DEBUG_TOKENIZER true
+#define DEBUG_TOKENIZER false
 
 // A list of tokens that can be recognised.
 typedef enum {
@@ -47,7 +47,6 @@ typedef enum {
 	TOKEN_NULL,
 	TOKEN_OR,
 	TOKEN_PHI,
-	TOKEN_PTR,
 	TOKEN_PTRTOINT,
 	TOKEN_RET,
 	TOKEN_SDIV,
@@ -104,12 +103,15 @@ typedef enum {
 	STATE_FPEXT,
 	STATE_FPTOUI,
 	STATE_FRE,
+	STATE_FREE,
+	STATE_FREM,
 	STATE_FSUB,
 	STATE_G,
 	STATE_GETELEMENTPTR,
 	STATE_GLOBAL,
 	STATE_I,
 	STATE_ICMP,
+	STATE_INT,
 	STATE_INTTOPTR,
 	STATE_L,
 	STATE_LITTLEENDIAN,
@@ -150,6 +152,8 @@ typedef enum {
 	STATE_VOID,
 	STATE_XOR,
 	STATE_ZE,
+	STATE_ZEROINITIALIZER,
+	STATE_ZEXT
 } state;
 
 state match(char* input, char* expected, state result) {
@@ -173,6 +177,64 @@ token get_token(char* input) {
 				switch (*ci++) {
 					case 'a':
 						current_state = STATE_A;
+						continue;
+					case 'b':
+						current_state = STATE_B;
+						continue;
+					case 'c':
+						current_state = match(
+							ci, "all", STATE_CALL);
+						continue;
+					case 'd':
+						current_state = STATE_D;
+						continue;
+					case 'f':
+						current_state = STATE_F;
+						continue;
+					case 'g':
+						current_state = STATE_G;
+						continue;
+					case 'i':
+						current_state = STATE_I;
+						continue;
+					case 'l':
+						current_state = STATE_L;
+						continue;
+					case 'm':
+						current_state = STATE_M;
+						continue;
+					case 'n':
+						current_state = match(
+							ci, "ull", STATE_NULL);
+						continue;
+					case 'o':
+						current_state = match(ci, "r", STATE_OR);
+						continue;
+					case 'p':
+						current_state = STATE_P;
+						continue;
+					case 'r':
+						current_state = match(ci, "et", STATE_RET);
+						continue;
+					case 's':
+						current_state = STATE_S;
+						continue;
+					case 't':
+						current_state = STATE_T;
+						continue;
+					case 'u':
+						current_state = STATE_U;
+						continue;
+					case 'v':
+						current_state = STATE_V;
+						continue;
+					case 'x':
+						current_state = match(ci, "or", STATE_XOR);
+						continue;
+					case 'z':
+						if (*ci++ == 'e') {
+							current_state = STATE_ZE;
+						}
 						continue;
 					default: 
 						current_state = ERROR_STATE;
@@ -210,78 +272,424 @@ token get_token(char* input) {
 			case STATE_AND: return TOKEN_AND;
 			case STATE_ASHR: return TOKEN_ASHR;
 
-			case STATE_B: break;
-			case STATE_BI: break;
+			case STATE_B: 
+				switch (*ci++) {
+					case 'i': 
+						current_state = STATE_BI;
+						continue;
+					case 'r': 
+						current_state = STATE_BR;
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+				break;
 
-			case STATE_BIGENDIAN: break;
-			case STATE_BITCAST: break;
-			case STATE_BR: break;
-			case STATE_CALL: break;
+			case STATE_BI: 
+				switch (*ci++) {
+					case 'g':
+						current_state = match(
+							ci, "endian", STATE_BIGENDIAN);
+						continue;
+					case 't':
+						current_state = match(
+							ci, "cast", STATE_BITCAST);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+				break;
 
-			case STATE_D: break;
-			case STATE_DE: break;
+			case STATE_BIGENDIAN: return TOKEN_BIGENDIAN;
+			case STATE_BITCAST: return TOKEN_BITCAST;
+			case STATE_BR: return TOKEN_BR;
 
-			case STATE_DECLARE: break;
-			case STATE_DEFINE: break;
-			case STATE_DOUBLE: break;
+			case STATE_CALL: return TOKEN_CALL;
 
-			case STATE_F: break;
+			case STATE_D: 
+				switch (*ci++) {
+					case 'e':
+						current_state = STATE_DE;
+						continue;
+					case 'o':
+						current_state = match(
+							ci, "uble", STATE_DOUBLE);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				};
 
-			case STATE_FADD: break;
-			case STATE_FCMP: break;
-			case STATE_FDIV: break;
-			case STATE_FLOAT: break;
-			case STATE_FMUL: break;
-			case STATE_FP: break;
-			case STATE_FPEXT: break;
-			case STATE_FPTOUI: break;
-			case STATE_FRE: break;
-			case STATE_FSUB: break;
-			case STATE_G: break;
-			case STATE_GETELEMENTPTR: break;
-			case STATE_GLOBAL: break;
-			case STATE_I: break;
-			case STATE_ICMP: break;
-			case STATE_INTTOPTR: break;
-			case STATE_L: break;
-			case STATE_LITTLEENDIAN: break;
-			case STATE_LOAD: break;
-			case STATE_LSHR: break;
-			case STATE_M: break;
-			case STATE_MALLOC: break;
-			case STATE_MUL: break;
-			case STATE_NULL: break;
-			case STATE_OR: break;
-			case STATE_P: break;
-			case STATE_PHI: break;
-			case STATE_PTRTOINT: break;
-			case STATE_RET: break;
-			case STATE_S: break;
-			case STATE_SDIV: break;
-			case STATE_SE: break;
-			case STATE_SELECT: break;
-			case STATE_SEXT: break;
-			case STATE_SHL: break;
-			case STATE_SREM: break;
-			case STATE_ST: break;
-			case STATE_STACK: break;
-			case STATE_STORE: break;
-			case STATE_SUB: break;
-			case STATE_T: break;
-			case STATE_TO: break;
-			case STATE_TRUNC: break;
-			case STATE_TYP: break;
-			case STATE_U: break;
-			case STATE_UDIV: break;
-			case STATE_UN: break;
-			case STATE_UNDEF: break;
-			case STATE_UNREACHABLE: break;
-			case STATE_UREM: break;
-			case STATE_V: break;
-			case STATE_VAL: break;
-			case STATE_VOID: break;
-			case STATE_XOR: break;
-			case STATE_ZE: break;
+			case STATE_DE: 
+				switch (*ci++) {
+					case 'c':
+						current_state = STATE_DECLARE;
+						continue;
+					case 'f':
+						current_state = STATE_DEFINE;
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_DECLARE: return TOKEN_DECLARE;
+			case STATE_DEFINE: return TOKEN_DEFINE;
+			case STATE_DOUBLE: return TOKEN_DOUBLE;
+
+			case STATE_F: 
+				switch (*ci++) {
+					case 'a': 
+						current_state = match(
+							ci, "dd", STATE_FADD);
+						continue;
+					case 'c':
+						current_state = match(
+							ci, "mp", STATE_FCMP);
+						continue;
+					case 'd':
+						current_state = match(
+							ci, "iv", STATE_FDIV);
+						continue;
+					case 'l':
+						current_state = match(
+							ci, "oat", STATE_FLOAT);
+						continue;
+					case 'm':
+						current_state = match(
+							ci, "ul", STATE_FMUL);
+						continue;
+					case 'p':
+						current_state = STATE_FP;
+						continue;
+					case 'r':
+						switch (*ci++) {
+							case 'e':
+								current_state = STATE_FRE;
+								continue;
+							default:
+								current_state = ERROR_STATE;
+								continue;
+						}
+					case 's':
+						current_state = match(ci, "ub", STATE_FSUB);
+						continue;
+					default: 
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_FADD: return TOKEN_FADD;
+			case STATE_FCMP: return TOKEN_FCMP;
+			case STATE_FDIV: return TOKEN_FDIV;
+			case STATE_FLOAT: return TOKEN_FLOAT;
+			case STATE_FMUL: return TOKEN_FMUL;
+
+			case STATE_FP:
+				switch (*ci++) {
+					case 'e':
+						current_state = match(
+							ci, "xt", STATE_FPEXT);
+						continue;
+					case 't':
+						current_state = match(
+							ci, "oui", STATE_FPTOUI);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_FPEXT: return TOKEN_FPEXT;
+			case STATE_FPTOUI: return TOKEN_FPTOUI;
+
+
+			case STATE_FRE: 
+				switch (*ci++) {
+					case 'e':
+						current_state = match(ci, "", STATE_FREE);
+						continue;
+					case 'm':
+						current_state = match(ci, "", STATE_FREM);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_FREE: return TOKEN_FREE;
+			case STATE_FREM: return TOKEN_FREM;
+			case STATE_FSUB: return TOKEN_FSUB;
+
+			case STATE_G: 
+				switch (*ci++) {
+					case 'e':
+						current_state = match(
+							ci, "telementptr", STATE_GETELEMENTPTR);
+						continue;
+					case 'l':
+						current_state = match(
+							ci, "obal", STATE_GLOBAL);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+			case STATE_GETELEMENTPTR: return TOKEN_GETELEMENTPTR;
+			case STATE_GLOBAL: return TOKEN_GLOBAL;
+
+			case STATE_I: 
+				switch (*ci++) {
+					case 'c':
+						current_state = match(
+							ci, "mp", STATE_ICMP);
+						continue;
+					case 'n':
+						if (*ci++ == 't') {
+							current_state = STATE_INT;
+							continue;
+						}
+						else {
+							current_state = ERROR_STATE;
+							continue;
+						}
+					default:
+						current_state = ERROR_STATE;;
+						continue;
+				}
+
+			case STATE_ICMP: return TOKEN_ICMP;
+
+			case STATE_INT:
+				switch (*ci++) {
+				case NULL:
+					return TOKEN_INT;
+				case 't':
+					current_state = match(
+						ci, "optr", STATE_INTTOPTR);
+					continue;
+				}
+
+			case STATE_INTTOPTR: return TOKEN_INTTOPTR;
+
+			case STATE_L: 
+				switch (*ci++) {
+				case 'i':
+					current_state = match(
+						ci, "ttleendian", STATE_LITTLEENDIAN);
+					continue;
+				case 'o':
+					current_state = match(
+						ci, "ad", STATE_LOAD);
+					continue;
+				case 's':
+					current_state = match(
+						ci, "hr", STATE_LSHR);
+					continue;
+				default:
+					current_state = ERROR_TOKEN;
+					continue;
+				}
+
+			case STATE_LITTLEENDIAN: return TOKEN_LITTLEENDIAN;
+			case STATE_LOAD: return TOKEN_LOAD;
+			case STATE_LSHR: return TOKEN_LSHR;
+
+			case STATE_M: 
+				switch (*ci++) {
+					case 'a':
+						current_state = match(
+							ci, "lloc", STATE_MALLOC);
+						continue;
+					case 'u':
+						current_state = match(
+							ci, "l", STATE_MUL);
+						continue;
+					default:
+						current_state = ERROR_TOKEN;
+						continue;
+				}
+
+			case STATE_MALLOC: return TOKEN_MALLOC;
+			case STATE_MUL: return TOKEN_MUL;
+
+			case STATE_NULL: return TOKEN_NULL;
+
+			case STATE_OR: return TOKEN_OR;
+
+			case STATE_P: 
+				switch (*ci++) {
+				case 'h':
+					current_state = match(ci, "i", STATE_PHI);
+					continue;
+				case 't':
+
+					current_state = match(
+						ci, "rtoint", STATE_PTRTOINT);
+					continue;
+				default:
+					current_state = ERROR_STATE;
+					continue;
+				}
+
+			case STATE_PHI: return TOKEN_PHI;
+			case STATE_PTRTOINT: return TOKEN_PTRTOINT;
+
+			case STATE_RET: return TOKEN_RET;
+
+			case STATE_S: 
+				switch (*ci++) {
+					case 'd':
+						current_state = match(ci, "iv", STATE_SDIV);
+						continue;
+					case 'e':
+						current_state = STATE_SE;
+						continue;
+					case 'h':
+						current_state = match(ci, "l", STATE_SHL);
+						continue;
+					case 'r':
+						current_state = match(ci, "em", STATE_SREM);
+						continue;
+					case 't':
+						current_state = STATE_ST;
+						continue;
+					case 'u':
+						current_state = match(ci, "b", STATE_SUB);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_SDIV: return TOKEN_SDIV;
+
+			case STATE_SE: 
+				switch (*ci++) {
+				case 'l':
+					current_state = match(ci, "ect", STATE_SELECT);
+					continue;
+				case 'x':
+					current_state = match(ci, "t", STATE_SEXT);
+					continue;
+				default: 
+					current_state = ERROR_STATE;
+					continue;
+				};
+
+			case STATE_SELECT: return TOKEN_SELECT;
+			case STATE_SEXT: return TOKEN_SEXT;
+			case STATE_SHL: return TOKEN_SHL;
+			case STATE_SREM: return TOKEN_SREM;
+
+			case STATE_ST: 
+				switch (*ci++) {
+				case 'a':
+					current_state = match(ci, "ck", STATE_STACK);
+					continue;
+				case 'o':
+					current_state = match(ci, "re", STATE_STORE);
+					continue;
+				default: 
+					current_state = ERROR_STATE;
+					continue;
+				}
+
+			case STATE_STACK: return TOKEN_STACK;
+			case STATE_STORE: return TOKEN_STORE;
+			case STATE_SUB: return TOKEN_SUB;
+
+			case STATE_T: 
+				switch (*ci++) {
+				case 'o':
+					current_state = match(ci, "", STATE_TO);
+					continue;
+				case 'r':
+					current_state = match(ci, "unc", STATE_TRUNC);
+					continue;
+				case 'y':
+					current_state = match(ci, "p", STATE_TYP);
+					continue;
+				default:
+					current_state = ERROR_STATE;
+					continue;
+				}
+
+			case STATE_TO: return TOKEN_TO;
+			case STATE_TRUNC: return TOKEN_TRUNC;
+			case STATE_TYP: return TOKEN_TYP;
+
+			case STATE_U: 
+				switch (*ci++) {
+					case 'd':
+						current_state = match(ci, "iv", STATE_UDIV);
+						continue;
+					case 'n':
+						current_state = STATE_UN;
+						continue;
+					case 'r':
+						current_state = match(ci, "em", STATE_UREM);
+						continue;
+					default: 
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_UDIV: return TOKEN_UDIV;
+
+			case STATE_UN: 
+				switch (*ci++) {
+					case 'd':
+						current_state = match(ci, "ef", STATE_UNDEF);
+						continue;
+					case 'r':
+						current_state = match(ci, "eachable", STATE_UNREACHABLE);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_UNDEF: return TOKEN_UNDEF;
+			case STATE_UNREACHABLE: return TOKEN_UNREACHABLE;
+			case STATE_UREM: return TOKEN_UREM;
+
+			case STATE_V: 
+				switch (*ci++) {
+					case 'a':;
+						current_state = match(ci, "l", STATE_VAL);
+						continue;
+					case 'o':;
+						current_state = match(ci, "id", STATE_VOID);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_VAL: return TOKEN_VAL;
+			case STATE_VOID: return TOKEN_VOID;
+			case STATE_XOR: return TOKEN_XOR;
+
+			case STATE_ZE:
+				switch (*ci++) {
+					case 'r':
+						current_state = match(
+							ci, "oinitializer", STATE_ZEROINITIALIZER);
+							continue;
+					case 'x':
+						current_state = match(
+							ci, "t", STATE_ZEXT);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_ZEROINITIALIZER: return TOKEN_ZEROINITALIZER;
+			case STATE_ZEXT: return TOKEN_ZEXT;
 		}
 	}
 }
@@ -363,7 +771,7 @@ char* preprocessor(char* input, char **output) {
 
 void test_tokenizer_case(char* gave, token expected) {
 	token got = get_token(gave);
-	printf("Gave %s, expected %d,  got %d.\n", gave, expected, got);
+	printf("Gave %s, expected %d, got %d.\n", gave, expected, got);
 }
 
 void test_tokenizer() {
@@ -372,6 +780,58 @@ void test_tokenizer() {
 	test_tokenizer_case("alloca", TOKEN_ALLOCA);
 	test_tokenizer_case("and", TOKEN_AND);
 	test_tokenizer_case("ashr", TOKEN_ASHR);
+	test_tokenizer_case("bigendian", TOKEN_BIGENDIAN);
+	test_tokenizer_case("bitcast", TOKEN_BITCAST);
+	test_tokenizer_case("br", TOKEN_BR);
+	test_tokenizer_case("call", TOKEN_CALL);
+	test_tokenizer_case("declare", TOKEN_DECLARE);
+	test_tokenizer_case("define", TOKEN_DEFINE);
+	test_tokenizer_case("double", TOKEN_DOUBLE);
+	test_tokenizer_case("fadd", TOKEN_FADD);
+	test_tokenizer_case("fcmp", TOKEN_FCMP);
+	test_tokenizer_case("fdiv", TOKEN_FDIV);
+	test_tokenizer_case("float", TOKEN_FDIV);
+	test_tokenizer_case("fmul", TOKEN_FMUL);
+	test_tokenizer_case("fpext", TOKEN_FPEXT);
+	test_tokenizer_case("fptoui", TOKEN_FPTOUI);
+	test_tokenizer_case("free", TOKEN_FREE);
+	test_tokenizer_case("frem", TOKEN_FREM);
+	test_tokenizer_case("fsub", TOKEN_FSUB);
+	test_tokenizer_case("getelementptr", TOKEN_GETELEMENTPTR);
+	test_tokenizer_case("global", TOKEN_GLOBAL);
+	test_tokenizer_case("icmp", TOKEN_ICMP);
+	test_tokenizer_case("int", TOKEN_INT);
+	test_tokenizer_case("inttoptr", TOKEN_INTTOPTR);
+	test_tokenizer_case("littleendian", TOKEN_LITTLEENDIAN);
+	test_tokenizer_case("load", TOKEN_LOAD);
+	test_tokenizer_case("lshr", TOKEN_LSHR);
+	test_tokenizer_case("malloc", TOKEN_MALLOC);
+	test_tokenizer_case("mul", TOKEN_MUL);
+	test_tokenizer_case("null", TOKEN_NULL);
+	test_tokenizer_case("or", TOKEN_OR);
+	test_tokenizer_case("phi", TOKEN_PHI);
+	test_tokenizer_case("ptrtoint", TOKEN_PTRTOINT);
+	test_tokenizer_case("ret", TOKEN_RET);
+	test_tokenizer_case("sdiv", TOKEN_SDIV);
+	test_tokenizer_case("select", TOKEN_SELECT);
+	test_tokenizer_case("sext", TOKEN_SEXT);
+	test_tokenizer_case("shl", TOKEN_SHL);
+	test_tokenizer_case("srem", TOKEN_SREM);
+	test_tokenizer_case("stack", TOKEN_STACK);
+	test_tokenizer_case("store", TOKEN_STORE);
+	test_tokenizer_case("sub", TOKEN_SUB);
+	test_tokenizer_case("to", TOKEN_TO);
+	test_tokenizer_case("trunc", TOKEN_TRUNC);
+	test_tokenizer_case("typ", TOKEN_TYP);
+	test_tokenizer_case("udiv", TOKEN_UDIV);
+	test_tokenizer_case("undef", TOKEN_UNDEF);
+	test_tokenizer_case("unreachable", TOKEN_UNREACHABLE);
+	test_tokenizer_case("urem", TOKEN_UREM);
+	test_tokenizer_case("val", TOKEN_VAL);
+	test_tokenizer_case("void", TOKEN_VOID);
+	test_tokenizer_case("xor", TOKEN_XOR);
+	test_tokenizer_case("zeroinitializer", TOKEN_ZEROINITALIZER);
+	test_tokenizer_case("zext", TOKEN_ZEXT);
 }
 
 /*
