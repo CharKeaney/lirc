@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+
 #define PREPROCESSOR_BUFFER_SIZE (1 << 8)
 #define PREPROCESSOR_WORD_SIZE (1 << 4)
 #define TOKENS_BUFFER_SIZE (1 << 8)
@@ -9,7 +10,7 @@
 #define DEBUG_PREPROCESSOR false
 #define DEBUG_TOKENIZE false
 #define DEBUG_TOKENIZER false
-#define DEBUG_TEST_TOKENIZER true
+#define DEBUG_TEST_TOKENIZER false
 
 #define lookup_token_as_name(a) token_name_lookup[a][0]
 #define lookup_token_as_lexeme(a) token_name_lookup[a][1]
@@ -77,6 +78,12 @@ typedef enum {
 	TOKEN_XOR,
 	TOKEN_ZEROINITIALIZER,
 	TOKEN_ZEXT,
+} token_name;
+
+typedef struct Token {
+	token_name name;
+	char* lexeme;
+	int value;
 } token;
 
 char* token_name_lookup[][2] = {
@@ -232,16 +239,29 @@ typedef enum {
 	STATE_ZEXT
 } state;
 
+struct Token *make_token(token_name name, char* lexeme, int value) {
+	token *tk = malloc(sizeof(token));
+	// Copying Name.
+	tk->name = name;
+	// Copying lexeme.
+	//tk->lexeme = malloc(sizeof(char) * strlen(lexeme));
+	//strcpy(lexeme, tk->lexeme);
+	tk->lexeme = lexeme;
+	// Copying value.
+	tk->value = value;
+	return tk;
+}
+
 state match(char* input, char* expected, state result) {
 	if (strcmp(input, expected) == 0) {
 		return result;
 	}
 }
 
-token tokenize(char* input) {
+struct Token *tokenize(char* input) {
 	char* ci = input;
 	state current_state = BEGIN_STATE;
-	token tk;
+	token_name tk;
 	while (current_state != END_STATE) {
 		if (DEBUG_TOKENIZE) { 
 			printf("CURRENT STATE: %d\n", current_state);
@@ -331,7 +351,7 @@ token tokenize(char* input) {
 				}
 				break;
 
-			case ERROR_STATE: return ERROR_TOKEN;
+			case ERROR_STATE: return make_token(ERROR_TOKEN, input, NULL);
 
 			case STATE_A: 
 				switch (*ci++) {
@@ -355,11 +375,11 @@ token tokenize(char* input) {
 				}
 				break;
 
-			case STATE_ADD: return TOKEN_ADD;
-			case STATE_AGGR: return TOKEN_AGGR;
-			case STATE_ALLOCA: return TOKEN_ALLOCA;
-			case STATE_AND: return TOKEN_AND;
-			case STATE_ASHR: return TOKEN_ASHR;
+			case STATE_ADD: return make_token(TOKEN_ADD, input, NULL);
+			case STATE_AGGR: return make_token(TOKEN_AGGR, input, NULL);
+			case STATE_ALLOCA: return make_token(TOKEN_ALLOCA, input, NULL);
+			case STATE_AND: return make_token(TOKEN_AND, input, NULL);
+			case STATE_ASHR: return make_token(TOKEN_ASHR, input, NULL);
 
 			case STATE_B: 
 				switch (*ci++) {
@@ -391,12 +411,12 @@ token tokenize(char* input) {
 				}
 				break;
 
-			case STATE_BIGENDIAN: return TOKEN_BIGENDIAN;
-			case STATE_BITCAST: return TOKEN_BITCAST;
-			case STATE_BR: return TOKEN_BR;
+			case STATE_BIGENDIAN: return make_token(TOKEN_BIGENDIAN, input, NULL);
+			case STATE_BITCAST: return make_token(TOKEN_BITCAST, input, NULL);
+			case STATE_BR: return make_token(TOKEN_BR, input, NULL);
 
-			case STATE_CALL: return TOKEN_CALL;
-			case STATE_COMMA: return TOKEN_COMMA;
+			case STATE_CALL: return make_token(TOKEN_CALL, input, NULL);
+			case STATE_COMMA: return make_token(TOKEN_COMMA, input, NULL);
 
 			case STATE_D: 
 				switch (*ci++) {
@@ -425,11 +445,10 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_DECLARE: return TOKEN_DECLARE;
-			case STATE_DEFINE: return TOKEN_DEFINE;
-			case STATE_DOUBLE: return TOKEN_DOUBLE;
-
-			case STATE_EQUALS: return TOKEN_EQUALS;
+			case STATE_DECLARE: return make_token(TOKEN_DECLARE, input, NULL);
+			case STATE_DEFINE:return make_token(TOKEN_DEFINE, input, NULL);
+			case STATE_DOUBLE: return make_token(TOKEN_DOUBLE, input, NULL);
+			case STATE_EQUALS: return make_token(TOKEN_EQUALS, input, NULL);;
 
 			case STATE_F: 
 				switch (*ci++) {
@@ -473,11 +492,11 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_FADD: return TOKEN_FADD;
-			case STATE_FCMP: return TOKEN_FCMP;
-			case STATE_FDIV: return TOKEN_FDIV;
-			case STATE_FLOAT: return TOKEN_FLOAT;
-			case STATE_FMUL: return TOKEN_FMUL;
+			case STATE_FADD: return make_token(TOKEN_FADD, input, NULL);
+			case STATE_FCMP: return make_token(TOKEN_FCMP, input, NULL);
+			case STATE_FDIV: return make_token(TOKEN_FDIV, input, NULL);
+			case STATE_FLOAT: return make_token(TOKEN_FLOAT, input, NULL);
+			case STATE_FMUL: return make_token(TOKEN_FMUL, input, NULL);
 
 			case STATE_FP:
 				switch (*ci++) {
@@ -494,8 +513,8 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_FPEXT: return TOKEN_FPEXT;
-			case STATE_FPTOUI: return TOKEN_FPTOUI;
+			case STATE_FPEXT: return  make_token(TOKEN_FPEXT, input, NULL);
+			case STATE_FPTOUI: return  make_token(TOKEN_FPTOUI, input, NULL);
 
 
 			case STATE_FRE: 
@@ -511,9 +530,9 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_FREE: return TOKEN_FREE;
-			case STATE_FREM: return TOKEN_FREM;
-			case STATE_FSUB: return TOKEN_FSUB;
+			case STATE_FREE: return make_token(TOKEN_FREE, input, NULL);
+			case STATE_FREM: return make_token(TOKEN_FREM, input, NULL);
+			case STATE_FSUB: return make_token(TOKEN_FSUB, input, NULL);
 
 			case STATE_G: 
 				switch (*ci++) {
@@ -529,8 +548,8 @@ token tokenize(char* input) {
 						current_state = ERROR_STATE;
 						continue;
 				}
-			case STATE_GETELEMENTPTR: return TOKEN_GETELEMENTPTR;
-			case STATE_GLOBAL: return TOKEN_GLOBAL;
+			case STATE_GETELEMENTPTR: return make_token(TOKEN_GETELEMENTPTR, input, NULL);
+			case STATE_GLOBAL: return make_token(TOKEN_GLOBAL, input, NULL);
 
 			case STATE_I: 
 				switch (*ci++) {
@@ -559,8 +578,8 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_ICMP: return TOKEN_ICMP;
-			case STATE_IDENTIFIER: return TOKEN_IDENTIFIER;
+			case STATE_ICMP: return make_token(TOKEN_ICMP, input, NULL);
+			case STATE_IDENTIFIER: return make_token(TOKEN_IDENTIFIER, input, NULL);
 
 			case STATE_INTEGERTYPE:
 				switch (*ci++) {
@@ -570,13 +589,13 @@ token tokenize(char* input) {
 						current_state = STATE_INTEGERTYPE;
 						continue;
 					case NULL:
-						return TOKEN_INTEGERTYPE;
+						return make_token(TOKEN_INTEGERTYPE, input, atoi(input+1));
 					default:
 						current_state = ERROR_STATE;
 						continue;
 				}
 
-			case STATE_INTTOPTR: return TOKEN_INTTOPTR;
+			case STATE_INTTOPTR: return make_token(TOKEN_INTTOPTR, input, NULL);;
 
 			case STATE_L: 
 				switch (*ci++) {
@@ -597,9 +616,9 @@ token tokenize(char* input) {
 					continue;
 				}
 
-			case STATE_LITTLEENDIAN: return TOKEN_LITTLEENDIAN;
-			case STATE_LOAD: return TOKEN_LOAD;
-			case STATE_LSHR: return TOKEN_LSHR;
+			case STATE_LITTLEENDIAN: return make_token(TOKEN_LITTLEENDIAN, input, NULL);
+			case STATE_LOAD: return make_token(TOKEN_LOAD, input, NULL);
+			case STATE_LSHR: return make_token(TOKEN_LSHR, input, NULL);
 
 			case STATE_M: 
 				switch (*ci++) {
@@ -616,12 +635,12 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_MALLOC: return TOKEN_MALLOC;
-			case STATE_MUL: return TOKEN_MUL;
+			case STATE_MALLOC: return make_token(TOKEN_MALLOC, input, NULL);
+			case STATE_MUL: return make_token(TOKEN_MUL, input, NULL);
 
-			case STATE_NULL: return TOKEN_NULL;
+			case STATE_NULL:return make_token(TOKEN_NULL, input, NULL);
 
-			case STATE_OR: return TOKEN_OR;
+			case STATE_OR: return make_token(TOKEN_OR, input, NULL);
 
 			case STATE_P: 
 				switch (*ci++) {
@@ -639,10 +658,10 @@ token tokenize(char* input) {
 				}
 				
 
-			case STATE_PHI: return TOKEN_PHI;
-			case STATE_PTRTOINT: return TOKEN_PTRTOINT;
+			case STATE_PHI: return make_token(TOKEN_PHI, input, NULL);
+			case STATE_PTRTOINT: return make_token(TOKEN_PTRTOINT, input, NULL);
 
-			case STATE_RET: return TOKEN_RET;
+			case STATE_RET: return make_token(TOKEN_RET, input, NULL);
 
 			case STATE_S: 
 				switch (*ci++) {
@@ -669,7 +688,7 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_SDIV: return TOKEN_SDIV;
+			case STATE_SDIV: return make_token(TOKEN_SDIV, input, NULL);
 
 			case STATE_SE: 
 				switch (*ci++) {
@@ -684,10 +703,10 @@ token tokenize(char* input) {
 					continue;
 				};
 
-			case STATE_SELECT: return TOKEN_SELECT;
-			case STATE_SEXT: return TOKEN_SEXT;
-			case STATE_SHL: return TOKEN_SHL;
-			case STATE_SREM: return TOKEN_SREM;
+			case STATE_SELECT: return make_token(TOKEN_SELECT, input, NULL);
+			case STATE_SEXT: return make_token(TOKEN_SEXT, input, NULL);
+			case STATE_SHL: return make_token(TOKEN_SHL, input, NULL);
+			case STATE_SREM: return make_token(TOKEN_SREM, input, NULL);
 
 			case STATE_ST: 
 				switch (*ci++) {
@@ -702,9 +721,9 @@ token tokenize(char* input) {
 					continue;
 				}
 
-			case STATE_STACK: return TOKEN_STACK;
-			case STATE_STORE: return TOKEN_STORE;
-			case STATE_SUB: return TOKEN_SUB;
+			case STATE_STACK: return make_token(TOKEN_STACK, input, NULL);
+			case STATE_STORE: return make_token(TOKEN_STORE, input, NULL);
+			case STATE_SUB: return make_token(TOKEN_SUB, input, NULL);
 
 			case STATE_T: 
 				switch (*ci++) {
@@ -722,9 +741,9 @@ token tokenize(char* input) {
 					continue;
 				}
 
-			case STATE_TO: return TOKEN_TO;
-			case STATE_TRUNC: return TOKEN_TRUNC;
-			case STATE_TYP: return TOKEN_TYP;
+			case STATE_TO: return make_token(TOKEN_TO, input, NULL);
+			case STATE_TRUNC: return make_token(TOKEN_TRUNC, input, NULL);
+			case STATE_TYP: return make_token(TOKEN_TYP, input, NULL);
 
 			case STATE_U: 
 				switch (*ci++) {
@@ -742,7 +761,7 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_UDIV: return TOKEN_UDIV;
+			case STATE_UDIV: return make_token(TOKEN_UDIV, input, NULL);
 
 			case STATE_UN: 
 				switch (*ci++) {
@@ -757,9 +776,9 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_UNDEF: return TOKEN_UNDEF;
-			case STATE_UNREACHABLE: return TOKEN_UNREACHABLE;
-			case STATE_UREM: return TOKEN_UREM;
+			case STATE_UNDEF: return make_token(TOKEN_UNDEF, input, NULL);
+			case STATE_UNREACHABLE: return make_token(TOKEN_UNREACHABLE, input, NULL);
+			case STATE_UREM: return make_token(TOKEN_UREM, input, NULL);
 
 			case STATE_V: 
 				switch (*ci++) {
@@ -774,9 +793,9 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_VAL: return TOKEN_VAL;
-			case STATE_VOID: return TOKEN_VOID;
-			case STATE_XOR: return TOKEN_XOR;
+			case STATE_VAL: return make_token(TOKEN_VAL, input, NULL);
+			case STATE_VOID: return make_token(TOKEN_VOID, input, NULL);
+			case STATE_XOR: return make_token(TOKEN_XOR, input, NULL);
 
 			case STATE_ZE:
 				switch (*ci++) {
@@ -793,8 +812,8 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_ZEROINITIALIZER: return TOKEN_ZEROINITIALIZER;
-			case STATE_ZEXT: return TOKEN_ZEXT;
+			case STATE_ZEROINITIALIZER: return make_token(TOKEN_ZEROINITIALIZER, input, NULL);
+			case STATE_ZEXT: return make_token(TOKEN_ZEXT, input, NULL);
 		}
 	}
 }
@@ -802,28 +821,28 @@ token tokenize(char* input) {
 /* tokenizer:
 *	Takes preprocessed input and outputs a series of tokens.
 */
-token* tokenizer(char** input, token* output) {
+void  tokenizer(char** input, token **output) {
 	// For each word in input
 	char** lexemes = input;
-	char* lexeme = *input;
-	token* dest = output;
+	char* lexeme = *lexemes++;
+	token** dest = output;
 	while (lexeme != NULL) {
 
 		if (DEBUG_TOKENIZER) {
 			printf("READ  : %-16s\t", lexeme);
 		}
 
-		token tk = tokenize(lexeme);
+		token *tk = tokenize(lexeme);
 		
 		if (DEBUG_TOKENIZER) {
 			printf("WROTE : %-10s\n",
-				lookup_token_as_name(tk));
+				lookup_token_as_name((*tk).name));
 		}
 		lexeme = *lexemes++;
 		*dest++ = tk;
 	}
 	// Finish the tokens off with NULL
-	*dest = EOF;
+	*dest = NULL;
 }
 
 /* is_whitespace:
@@ -898,7 +917,7 @@ char* preprocessor(char* input, char **output) {
 		// Case 2.1. This is the last character in word.
 		
 		if (is_delimiter(*(ci + 1))) {
-			// If so finish word
+			// If so finish word.
 			buffer[bi] = NULL;
 			// Then add word to output.
 			output[oi++] = buffer;
@@ -916,16 +935,16 @@ char* preprocessor(char* input, char **output) {
 	output[oi] = NULL;
 }
 
-void test_tokenize_case(char* gave, token expected) {
-	token got = tokenize(gave);
+void test_tokenize_case(char* gave, token_name expected) {
+	token *got = tokenize(gave);
 	printf("Gave %-16s expected %-22s got %-22s\n", 
 		gave, 
 		lookup_token_as_name(expected), 
-		lookup_token_as_name(got));
+		lookup_token_as_name((*got).name));
 }
 
 void test_tokenize() {
-	for (token i = TOKEN_ADD; i < TOKEN_ZEXT; i++) {
+	for (token_name i = TOKEN_ADD; i < TOKEN_ZEXT; i++) {
 		test_tokenize_case(lookup_token_as_lexeme(i), i);
 	}
 }
@@ -935,13 +954,19 @@ void test_tokenizer() {
 }
 
 
-void print_token_list(token* tokens) {
-	token* tk = tokens;
-	printf("%16s", "Token Name\n");
-	printf("%16s", "----------\n");
-	while (*tk != EOF) {
-		printf("%16s\n", lookup_token_as_name(*tk++));
-	}
+void print_token_list(token **tokens) {
+	token **tk = tokens;
+	char* header_format = "%16s\t%16s\t%16s\n";
+	char* field_format = "%16s\t%16s\t%16d\n";
+	printf(header_format, "Token Name", "Token Lexeme", "Token Value");
+	printf(header_format, "----------", "------------", "-----------");
+	while (*tk != NULL) {
+		printf(field_format,
+			lookup_token_as_name((**tk).name),
+			(**tk).lexeme,
+			(**tk).value);
+		tk++;
+	};
 }
 
 /*
@@ -959,8 +984,7 @@ void main(int argc, char* argv[])
 		"%0 = add i32 %X, %X; yields i32:%0\n\
 		 %1 = add i32 %0, %0; yields i32 : %1\n\
 		 %result = add i32 %1, %1", words);
-	token tokens[TOKENS_BUFFER_SIZE];
+	token *tokens[TOKENS_BUFFER_SIZE];
 	tokenizer(words, tokens);
 	print_token_list(tokens);
-	
 }
