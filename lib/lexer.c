@@ -8,8 +8,11 @@
 
 #define DEBUG_PREPROCESSOR false
 #define DEBUG_TOKENIZE false
-#define DEBUG_TOKENIZER true
+#define DEBUG_TOKENIZER false
 #define DEBUG_TEST_TOKENIZER true
+
+#define lookup_token_as_name(a) token_name_lookup[a][0]
+#define lookup_token_as_lexeme(a) token_name_lookup[a][1]
 
 // A list of tokens that can be recognised.
 typedef enum {
@@ -23,9 +26,11 @@ typedef enum {
 	TOKEN_BITCAST,
 	TOKEN_BR,
 	TOKEN_CALL,
+	TOKEN_COMMA,
 	TOKEN_DECLARE,
 	TOKEN_DEFINE,
 	TOKEN_DOUBLE,
+	TOKEN_EQUALS,
 	TOKEN_FADD,
 	TOKEN_FCMP,
 	TOKEN_FDIV,
@@ -39,7 +44,8 @@ typedef enum {
 	TOKEN_GETELEMENTPTR,
 	TOKEN_GLOBAL,
 	TOKEN_ICMP,
-	TOKEN_INT,
+	TOKEN_IDENTIFIER,
+	TOKEN_INTEGERTYPE,
 	TOKEN_INTTOPTR,
 	TOKEN_LITTLEENDIAN,
 	TOKEN_LOAD,
@@ -69,9 +75,74 @@ typedef enum {
 	TOKEN_VAL,
 	TOKEN_VOID,
 	TOKEN_XOR,
-	TOKEN_ZEROINITALIZER,
+	TOKEN_ZEROINITIALIZER,
 	TOKEN_ZEXT,
 } token;
+
+char* token_name_lookup[][2] = {
+	[TOKEN_ADD] = {"TOKEN_ADD", "add"},
+	[TOKEN_AGGR] = {"TOKEN_AGGR", "aggr"},
+	[TOKEN_ALLOCA] = {"TOKEN_ALLOCA", "alloca"},
+	[TOKEN_AND] = {"TOKEN_AND", "and"},
+	[TOKEN_ASHR] = {"TOKEN_ASHR", "ashr"},
+	[TOKEN_BIGENDIAN] = {"TOKEN_BIGENDIAN", "bigendian"},
+	[TOKEN_BITCAST] = {"TOKEN_BITCAST", "bitcast"},
+	[TOKEN_BR] = {"TOKEN_BR", "br"},
+	[TOKEN_BR] = {"TOKEN_BR", "br"},
+	[TOKEN_CALL] = {"TOKEN_CALL", "call"},
+	[TOKEN_COMMA] = {"TOKEN_COMMA", ","},
+	[TOKEN_DECLARE] = {"TOKEN_DECLARE", "declare"},
+	[TOKEN_DEFINE] = {"TOKEN_DEFINE", "define"},
+	[TOKEN_DOUBLE] = {"TOKEN_DOUBLE", "double"},
+	[TOKEN_EQUALS] = {"TOKEN_EQUALS", "="},
+	[TOKEN_FADD] = {"TOKEN_FADD", "fadd"},
+	[TOKEN_FCMP] = {"TOKEN_FCMP", "fcmp"},
+	[TOKEN_FDIV] = {"TOKEN_FDIV", "fdiv"},
+	[TOKEN_FLOAT] = {"TOKEN_FLOAT", "float"},
+	[TOKEN_FMUL] = {"TOKEN_FMUL", "fmul"},
+	[TOKEN_FPEXT] = {"TOKEN_FPEXT", "fpext"},
+	[TOKEN_FPTOUI] = {"TOKEN_FPTOUI", "fptoui"},
+	[TOKEN_FREE] = {"TOKEN_FREE", "free"},
+	[TOKEN_FREM] = {"TOKEN_FREM", "frem"},
+	[TOKEN_FSUB] = {"TOKEN_FSUB", "fsub"},
+	[TOKEN_GETELEMENTPTR] = {"TOKEN_GETELEMENTPTR", "getelementptr"},
+	[TOKEN_GLOBAL] = {"TOKEN_GLOBAL", "global"},
+	[TOKEN_ICMP] = {"TOKEN_ICMP", "icmp"},
+	[TOKEN_IDENTIFIER] = {"TOKEN_IDENTIFIER", "%identifier"},
+	[TOKEN_INTEGERTYPE] = {"TOKEN_INTEGERTYPE", "i32"},
+	[TOKEN_INTTOPTR] = {"TOKEN_INTTOPTR", "inttoptr"},
+	[TOKEN_LITTLEENDIAN] = {"TOKEN_LITTLEENDIAN", "littleendian"},
+	[TOKEN_LOAD] = {"TOKEN_LOAD", "load"},
+	[TOKEN_LSHR] = {"TOKEN_LSHR", "lshr"},
+	[TOKEN_MALLOC] = {"TOKEN_MALLOC", "malloc"},
+	[TOKEN_MUL] = {"TOKEN_MUL", "mul"},
+	[TOKEN_NULL] = {"TOKEN_NULL", "null"},
+	[TOKEN_OR] = {"TOKEN_OR", "or"},
+	[TOKEN_PHI] = {"TOKEN_PHI", "phi"},
+	[TOKEN_PTRTOINT] = {"TOKEN_PTRTOINT", "ptrtoint"},
+	[TOKEN_RET] = {"TOKEN_RET", "ret"},
+	[TOKEN_SDIV] = {"TOKEN_SDIV", "sdiv"},
+	[TOKEN_SELECT] = {"TOKEN_SELECT", "select"},
+	[TOKEN_SEXT] = {"TOKEN_SEXT", "sext"},
+	[TOKEN_SHL] = {"TOKEN_SHL", "shl"},
+	[TOKEN_SREM] = {"TOKEN_SREM", "srem"},
+	[TOKEN_STACK] = {"TOKEN_STACK", "stack"},
+	[TOKEN_STORE] = {"TOKEN_STORE", "store"},
+	[TOKEN_SUB] = {"TOKEN_SUB", "sub"},
+	[TOKEN_TO] = {"TOKEN_TO", "to"},
+	[TOKEN_TRUNC] = {"TOKEN_TRUNC", "trunc"},
+	[TOKEN_TYP] = {"TOKEN_TYP", "typ"},
+	[TOKEN_UDIV] = {"TOKEN_UDIV", "udiv"},
+	[TOKEN_UNDEF] = {"TOKEN_UNDEF", "undef"},
+	[TOKEN_UNREACHABLE] = {"TOKEN_UNREACHABLE", "unreachable"},
+	[TOKEN_UREM] = {"TOKEN_UREM", "urem"},
+	[TOKEN_VAL] = {"TOKEN_VAL", "val"},
+	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
+	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
+	[TOKEN_XOR] = {"TOKEN_XOR", "xor"},
+	[TOKEN_ZEROINITIALIZER] = {"TOKEN_ZEROINITIALIZER", "zeroinitializer"},
+	[TOKEN_ZEXT] = {"TOKEN_ZEXT", "zext"},
+};
 
 // A list of states that the lexer can have.
 typedef enum {
@@ -90,11 +161,13 @@ typedef enum {
 	STATE_BITCAST,
 	STATE_BR,
 	STATE_CALL,
+	STATE_COMMA,
 	STATE_D,
 	STATE_DE,
 	STATE_DECLARE,
 	STATE_DEFINE,
 	STATE_DOUBLE,
+	STATE_EQUALS,
 	STATE_F,
 	STATE_FADD,
 	STATE_FCMP,
@@ -113,7 +186,8 @@ typedef enum {
 	STATE_GLOBAL,
 	STATE_I,
 	STATE_ICMP,
-	STATE_INT,
+	STATE_IDENTIFIER,
+	STATE_INTEGERTYPE,
 	STATE_INTTOPTR,
 	STATE_L,
 	STATE_LITTLEENDIAN,
@@ -236,7 +310,20 @@ token tokenize(char* input) {
 					case 'z':
 						if (*ci++ == 'e') {
 							current_state = STATE_ZE;
+							continue;
 						}
+						else {
+							current_state = ERROR_STATE;
+							continue;
+						}
+					case '%':
+						current_state = STATE_IDENTIFIER;
+						continue;
+					case '=':
+						current_state = match(ci, "", STATE_EQUALS);
+						continue;
+					case ',':
+						current_state = match(ci, "", STATE_COMMA);
 						continue;
 					default: 
 						current_state = ERROR_STATE;
@@ -309,6 +396,7 @@ token tokenize(char* input) {
 			case STATE_BR: return TOKEN_BR;
 
 			case STATE_CALL: return TOKEN_CALL;
+			case STATE_COMMA: return TOKEN_COMMA;
 
 			case STATE_D: 
 				switch (*ci++) {
@@ -340,6 +428,8 @@ token tokenize(char* input) {
 			case STATE_DECLARE: return TOKEN_DECLARE;
 			case STATE_DEFINE: return TOKEN_DEFINE;
 			case STATE_DOUBLE: return TOKEN_DOUBLE;
+
+			case STATE_EQUALS: return TOKEN_EQUALS;
 
 			case STATE_F: 
 				switch (*ci++) {
@@ -450,28 +540,40 @@ token tokenize(char* input) {
 						continue;
 					case 'n':
 						if (*ci++ == 't') {
-							current_state = STATE_INT;
+							current_state = match(
+								ci, "toptr", STATE_INTTOPTR);
 							continue;
 						}
 						else {
 							current_state = ERROR_STATE;
 							continue;
 						}
+					case '0': 
+					case '1': case '2': case '3':
+					case '4': case '5': case '6': 
+					case '7': case '8': case '9':
+						current_state = STATE_INTEGERTYPE;
+						continue;
 					default:
 						current_state = ERROR_STATE;;
 						continue;
 				}
 
 			case STATE_ICMP: return TOKEN_ICMP;
+			case STATE_IDENTIFIER: return TOKEN_IDENTIFIER;
 
-			case STATE_INT:
+			case STATE_INTEGERTYPE:
 				switch (*ci++) {
-				case NULL:
-					return TOKEN_INT;
-				case 't':
-					current_state = match(
-						ci, "optr", STATE_INTTOPTR);
-					continue;
+					case '1': case '2': case '3':
+					case '4': case '5': case '6':
+					case '7': case '8': case '9':
+						current_state = STATE_INTEGERTYPE;
+						continue;
+					case NULL:
+						return TOKEN_INTEGERTYPE;
+					default:
+						current_state = ERROR_STATE;
+						continue;
 				}
 
 			case STATE_INTTOPTR: return TOKEN_INTTOPTR;
@@ -535,6 +637,7 @@ token tokenize(char* input) {
 					current_state = ERROR_STATE;
 					continue;
 				}
+				
 
 			case STATE_PHI: return TOKEN_PHI;
 			case STATE_PTRTOINT: return TOKEN_PTRTOINT;
@@ -690,7 +793,7 @@ token tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_ZEROINITIALIZER: return TOKEN_ZEROINITALIZER;
+			case STATE_ZEROINITIALIZER: return TOKEN_ZEROINITIALIZER;
 			case STATE_ZEXT: return TOKEN_ZEXT;
 		}
 	}
@@ -706,18 +809,21 @@ token* tokenizer(char** input, token* output) {
 	token* dest = output;
 	while (lexeme != NULL) {
 
-		if (DEBUG_TEST_TOKENIZER) {
-			printf("READ : %s\n", lexeme);
+		if (DEBUG_TOKENIZER) {
+			printf("READ  : %-16s\t", lexeme);
 		}
 
 		token tk = tokenize(lexeme);
 		
-		if (DEBUG_TEST_TOKENIZER) {
-			printf("WROTE %d to %d\n", tk, dest - output);
+		if (DEBUG_TOKENIZER) {
+			printf("WROTE : %-10s\n",
+				lookup_token_as_name(tk));
 		}
 		lexeme = *lexemes++;
-		dest++;
+		*dest++ = tk;
 	}
+	// Finish the tokens off with NULL
+	*dest = EOF;
 }
 
 /* is_whitespace:
@@ -743,7 +849,7 @@ bool is_delimiter(char chr) {
 	switch (chr) {
 		case ' ': case '\t': 
 		case '\n': case EOF:
-		case '[': case ']':
+		case '[': case ']': case ',': case ';':
 		case NULL:
 			return true;
 		default: 
@@ -763,9 +869,25 @@ char* preprocessor(char* input, char **output) {
 	char oi = 0, bi = 0; // output and buffer index
 	char* ci = input; // Character index
 	// For each character in input
+	bool in_comment = false;
 	while (*ci != NULL && *ci != EOF) {
 		if (DEBUG_PREPROCESSOR) {
 			printf("CURRENT CHARACTER: '%c'\n", *ci);
+		}
+		// Case 0. We are in a comment.
+		if (in_comment) {
+			if (*ci++ == '\n') {
+				in_comment = false;
+				continue;
+			}
+			else {
+				continue;
+			}
+		}
+		// Case 0. We are entering a comment.
+		if (*ci == ';') {
+			in_comment = true;
+			continue;
 		}
 	
 		// Case 1. This is white-space.
@@ -781,7 +903,7 @@ char* preprocessor(char* input, char **output) {
 			// Then add word to output.
 			output[oi++] = buffer;
 			if (DEBUG_PREPROCESSOR) {
-				printf("WORD: %s\n", buffer);
+				printf("SAVING WORD: %s\n", buffer);
 			}
 			// Then reset state.
 			bi = 0;
@@ -790,72 +912,36 @@ char* preprocessor(char* input, char **output) {
 		}
 		ci++;
 	}
-	
+	// Now finish it off with a NULL.
+	output[oi] = NULL;
 }
 
-void test_tokenizer_case(char* gave, token expected) {
+void test_tokenize_case(char* gave, token expected) {
 	token got = tokenize(gave);
-	printf("Gave %s, expected %d, got %d.\n", gave, expected, got);
+	printf("Gave %-16s expected %-22s got %-22s\n", 
+		gave, 
+		lookup_token_as_name(expected), 
+		lookup_token_as_name(got));
+}
+
+void test_tokenize() {
+	for (token i = TOKEN_ADD; i < TOKEN_ZEXT; i++) {
+		test_tokenize_case(lookup_token_as_lexeme(i), i);
+	}
 }
 
 void test_tokenizer() {
-	test_tokenizer_case("add", TOKEN_ADD);
-	test_tokenizer_case("aggr", TOKEN_AGGR);
-	test_tokenizer_case("alloca", TOKEN_ALLOCA);
-	test_tokenizer_case("and", TOKEN_AND);
-	test_tokenizer_case("ashr", TOKEN_ASHR);
-	test_tokenizer_case("bigendian", TOKEN_BIGENDIAN);
-	test_tokenizer_case("bitcast", TOKEN_BITCAST);
-	test_tokenizer_case("br", TOKEN_BR);
-	test_tokenizer_case("call", TOKEN_CALL);
-	test_tokenizer_case("declare", TOKEN_DECLARE);
-	test_tokenizer_case("define", TOKEN_DEFINE);
-	test_tokenizer_case("double", TOKEN_DOUBLE);
-	test_tokenizer_case("fadd", TOKEN_FADD);
-	test_tokenizer_case("fcmp", TOKEN_FCMP);
-	test_tokenizer_case("fdiv", TOKEN_FDIV);
-	test_tokenizer_case("float", TOKEN_FDIV);
-	test_tokenizer_case("fmul", TOKEN_FMUL);
-	test_tokenizer_case("fpext", TOKEN_FPEXT);
-	test_tokenizer_case("fptoui", TOKEN_FPTOUI);
-	test_tokenizer_case("free", TOKEN_FREE);
-	test_tokenizer_case("frem", TOKEN_FREM);
-	test_tokenizer_case("fsub", TOKEN_FSUB);
-	test_tokenizer_case("getelementptr", TOKEN_GETELEMENTPTR);
-	test_tokenizer_case("global", TOKEN_GLOBAL);
-	test_tokenizer_case("icmp", TOKEN_ICMP);
-	test_tokenizer_case("int", TOKEN_INT);
-	test_tokenizer_case("inttoptr", TOKEN_INTTOPTR);
-	test_tokenizer_case("littleendian", TOKEN_LITTLEENDIAN);
-	test_tokenizer_case("load", TOKEN_LOAD);
-	test_tokenizer_case("lshr", TOKEN_LSHR);
-	test_tokenizer_case("malloc", TOKEN_MALLOC);
-	test_tokenizer_case("mul", TOKEN_MUL);
-	test_tokenizer_case("null", TOKEN_NULL);
-	test_tokenizer_case("or", TOKEN_OR);
-	test_tokenizer_case("phi", TOKEN_PHI);
-	test_tokenizer_case("ptrtoint", TOKEN_PTRTOINT);
-	test_tokenizer_case("ret", TOKEN_RET);
-	test_tokenizer_case("sdiv", TOKEN_SDIV);
-	test_tokenizer_case("select", TOKEN_SELECT);
-	test_tokenizer_case("sext", TOKEN_SEXT);
-	test_tokenizer_case("shl", TOKEN_SHL);
-	test_tokenizer_case("srem", TOKEN_SREM);
-	test_tokenizer_case("stack", TOKEN_STACK);
-	test_tokenizer_case("store", TOKEN_STORE);
-	test_tokenizer_case("sub", TOKEN_SUB);
-	test_tokenizer_case("to", TOKEN_TO);
-	test_tokenizer_case("trunc", TOKEN_TRUNC);
-	test_tokenizer_case("typ", TOKEN_TYP);
-	test_tokenizer_case("udiv", TOKEN_UDIV);
-	test_tokenizer_case("undef", TOKEN_UNDEF);
-	test_tokenizer_case("unreachable", TOKEN_UNREACHABLE);
-	test_tokenizer_case("urem", TOKEN_UREM);
-	test_tokenizer_case("val", TOKEN_VAL);
-	test_tokenizer_case("void", TOKEN_VOID);
-	test_tokenizer_case("xor", TOKEN_XOR);
-	test_tokenizer_case("zeroinitializer", TOKEN_ZEROINITALIZER);
-	test_tokenizer_case("zext", TOKEN_ZEXT);
+	test_tokenizer();
+}
+
+
+void print_token_list(token* tokens) {
+	token* tk = tokens;
+	printf("%16s", "Token Name\n");
+	printf("%16s", "----------\n");
+	while (*tk != EOF) {
+		printf("%16s\n", lookup_token_as_name(*tk++));
+	}
 }
 
 /*
@@ -866,10 +952,15 @@ void test_tokenizer() {
 void main(int argc, char* argv[])
 {
 	if (DEBUG_TEST_TOKENIZER) {
-		test_tokenizer();
+		test_tokenize();
 	}
 	char *words[PREPROCESSOR_BUFFER_SIZE];
-	preprocessor("add add srem sub to val void", words);
+	preprocessor(
+		"%0 = add i32 %X, %X; yields i32:%0\n\
+		 %1 = add i32 %0, %0; yields i32 : %1\n\
+		 %result = add i32 %1, %1", words);
 	token tokens[TOKENS_BUFFER_SIZE];
-	tokenizer(words, tokens);	
+	tokenizer(words, tokens);
+	print_token_list(tokens);
+	
 }
