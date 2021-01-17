@@ -1,7 +1,8 @@
+/* lexer.c - Peforms lexical analysis on given input after preprocessing */
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-
 
 #define PREPROCESSOR_BUFFER_SIZE (1 << 8)
 #define PREPROCESSOR_WORD_SIZE (1 << 4)
@@ -15,7 +16,10 @@
 #define lookup_token_as_name(a) token_name_lookup[a][0]
 #define lookup_token_as_lexeme(a) token_name_lookup[a][1]
 
-// A list of tokens that can be recognised.
+/* A token_name is a name of a token.
+*  The tokens name is not neccessarily the same as its lexeme.
+*  ERROR_TOKEN signals eroneous input.
+* */
 typedef enum {
 	ERROR_TOKEN,
 	TOKEN_ADD,
@@ -80,12 +84,23 @@ typedef enum {
 	TOKEN_ZEXT,
 } token_name;
 
+/*
+* Token is used to store data on a token.
+* This is neccessary as a token may in some cases have information
+* that cannot be communicated simply through its name.
+*/
 typedef struct Token {
-	token_name name;
-	char* lexeme;
-	int value;
+	token_name name;	/* The name or 'class' of token.		 */
+	char* lexeme;		/* The lexeme or 'contents' of token	 */
+	int value;			/* The value or meaning behind a token	 */
 } token;
 
+/*
+* token_name_lookup is used to associate a tokens internal name
+* with a human-readable name. Used for human interfacing and also
+* for testing purposes. Lexeme is the appropriate lexeme, or
+* an example lexeme if more than one exists.
+*/
 char* token_name_lookup[][2] = {
 	[TOKEN_ADD] = {"TOKEN_ADD", "add"},
 	[TOKEN_AGGR] = {"TOKEN_AGGR", "aggr"},
@@ -151,7 +166,14 @@ char* token_name_lookup[][2] = {
 	[TOKEN_ZEXT] = {"TOKEN_ZEXT", "zext"},
 };
 
-// A list of states that the lexer can have.
+/* states represents the states that the lexer can have.
+*  where possible, each state is named according to the 
+*  symbols encountered up to that point. 
+* e.g.	STATE_BI means 'b' and 'i' was read.
+*	however this has some exceptions,
+* e.g.	STATE_INTEGERTYPE does not mean read "integertype" but
+*		instead means read an integertype iX for some number x.
+*/
 typedef enum {
 	BEGIN_STATE,
 	END_STATE,
@@ -239,6 +261,12 @@ typedef enum {
 	STATE_ZEXT
 } state;
 
+/*
+* make_token generates a token struct from given data.
+* name means the internal name e.g. TOKEN_ADD.
+* lexeme means the word that made the token, e.g. "%myvar"
+* value means the value behind the token, e.g. 32
+*/
 struct Token *make_token(token_name name, char* lexeme, int value) {
 	token *tk = malloc(sizeof(token));
 	// Copying Name.
@@ -252,16 +280,26 @@ struct Token *make_token(token_name name, char* lexeme, int value) {
 	return tk;
 }
 
+/*
+* match is used to make a final decision on if an input corresponds
+* to a token. If the inputs match then it returns the given result
+* state, otherwise it returns the error state.
+*/
 state match(char* input, char* expected, state result) {
 	if (strcmp(input, expected) == 0) {
 		return result;
+	} else {
+		return ERROR_STATE;
 	}
 }
 
+/*
+* tokenize is used to return a pointer to an appropriately constructed
+* token from a given preprocessed word. 
+*/
 struct Token *tokenize(char* input) {
-	char* ci = input;
+	char* ci = input; /* ci represents the currently considered char */
 	state current_state = BEGIN_STATE;
-	token_name tk;
 	while (current_state != END_STATE) {
 		if (DEBUG_TOKENIZE) { 
 			printf("CURRENT STATE: %d\n", current_state);
@@ -818,8 +856,9 @@ struct Token *tokenize(char* input) {
 	}
 }
 
-/* tokenizer:
-*	Takes preprocessed input and outputs a series of tokens.
+/* tokenizer takes preprocessed input words and places the output
+* in a array of pointers to tokens. It marks the end of the output 
+* with NULL.
 */
 void  tokenizer(char** input, token **output) {
 	// For each word in input
@@ -845,8 +884,10 @@ void  tokenizer(char** input, token **output) {
 	*dest = NULL;
 }
 
-/* is_whitespace:
-* 
+/* is_whitespace determines if the preprocessor should ignore these
+* input symbols. It differs from is_delimiter as whitespace is never
+* part of the input, while a delimiter may be the start of a 
+* new word.
 */
  bool is_whitespace(char chr) {
 	switch (chr) {
@@ -859,9 +900,8 @@ void  tokenizer(char** input, token **output) {
 	}
 }
 
-/* is_delimiter:
-*	Informs the preprocessor as to if the word should 
-*	continue up to and including this symbol
+/* is_delimiter Informs the preprocessor as to if the word should 
+*	finish and restart anew including this given symbol.
 */
 bool is_delimiter(char chr) {
 	if (is_whitespace(chr)) { return true; }
@@ -876,8 +916,7 @@ bool is_delimiter(char chr) {
 	}
 }
 
-/* preprocessor:
-	Splits an input string into 
+/* preprocessor plits an input string into 
 	substrings each containing a single word.
 	Assuming a well-formed input, one token
 	can be made from each word.
@@ -935,6 +974,9 @@ char* preprocessor(char* input, char **output) {
 	output[oi] = NULL;
 }
 
+/* test_tokenize_case tests an individual case of tokenize
+* and prints a short report on the result.
+*/
 void test_tokenize_case(char* gave, token_name expected) {
 	token *got = tokenize(gave);
 	printf("Gave %-16s expected %-22s got %-22s\n", 
@@ -943,17 +985,18 @@ void test_tokenize_case(char* gave, token_name expected) {
 		lookup_token_as_name((*got).name));
 }
 
+/* test_tokenize tests many cases of tokenize and prints
+*  a report on each result.
+*/
 void test_tokenize() {
 	for (token_name i = TOKEN_ADD; i < TOKEN_ZEXT; i++) {
 		test_tokenize_case(lookup_token_as_lexeme(i), i);
 	}
 }
 
-void test_tokenizer() {
-	test_tokenizer();
-}
-
-
+/* print_token_list prints a given list of pointers to tokens, 
+*  including all of their field contents.
+*/
 void print_token_list(token **tokens) {
 	token **tk = tokens;
 	char* header_format = "%16s\t%16s\t%16s\n";
