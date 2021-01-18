@@ -1,99 +1,6 @@
 /* lexer.c - Peforms lexical analysis on given input after preprocessing */
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-
-#define PREPROCESSOR_BUFFER_SIZE (1 << 8)
-#define PREPROCESSOR_WORD_SIZE (1 << 4)
-#define TOKENS_BUFFER_SIZE (1 << 8)
-
-#define DEBUG_PREPROCESSOR false
-#define DEBUG_TOKENIZE false
-#define DEBUG_TOKENIZER false
-#define DEBUG_TEST_TOKENIZER false
-
-#define lookup_token_as_name(a) token_name_lookup[a][0]
-#define lookup_token_as_lexeme(a) token_name_lookup[a][1]
-
-/* A token_name is a name of a token.
-*  The tokens name is not neccessarily the same as its lexeme.
-*  ERROR_TOKEN signals eroneous input.
-* */
-typedef enum {
-	ERROR_TOKEN,
-	TOKEN_ADD,
-	TOKEN_AGGR,
-	TOKEN_ALLOCA,
-	TOKEN_AND,
-	TOKEN_ASHR,
-	TOKEN_BIGENDIAN,
-	TOKEN_BITCAST,
-	TOKEN_BR,
-	TOKEN_CALL,
-	TOKEN_COMMA,
-	TOKEN_DECLARE,
-	TOKEN_DEFINE,
-	TOKEN_DOUBLE,
-	TOKEN_EQUALS,
-	TOKEN_FADD,
-	TOKEN_FCMP,
-	TOKEN_FDIV,
-	TOKEN_FLOAT,
-	TOKEN_FMUL,
-	TOKEN_FPEXT,
-	TOKEN_FPTOUI,
-	TOKEN_FREE,
-	TOKEN_FREM,
-	TOKEN_FSUB,
-	TOKEN_GETELEMENTPTR,
-	TOKEN_GLOBAL,
-	TOKEN_ICMP,
-	TOKEN_IDENTIFIER,
-	TOKEN_INTEGERTYPE,
-	TOKEN_INTTOPTR,
-	TOKEN_LITTLEENDIAN,
-	TOKEN_LOAD,
-	TOKEN_LSHR,
-	TOKEN_MALLOC,
-	TOKEN_MUL,
-	TOKEN_NULL,
-	TOKEN_OR,
-	TOKEN_PHI,
-	TOKEN_PTRTOINT,
-	TOKEN_RET,
-	TOKEN_SDIV,
-	TOKEN_SELECT,
-	TOKEN_SEXT,
-	TOKEN_SHL,
-	TOKEN_SREM,
-	TOKEN_STACK,
-	TOKEN_STORE,
-	TOKEN_SUB,
-	TOKEN_TO,
-	TOKEN_TRUNC,
-	TOKEN_TYP,
-	TOKEN_UDIV,
-	TOKEN_UNDEF,
-	TOKEN_UNREACHABLE,
-	TOKEN_UREM,
-	TOKEN_VAL,
-	TOKEN_VOID,
-	TOKEN_XOR,
-	TOKEN_ZEROINITIALIZER,
-	TOKEN_ZEXT,
-} token_name;
-
-/*
-* Token is used to store data on a token.
-* This is neccessary as a token may in some cases have information
-* that cannot be communicated simply through its name.
-*/
-typedef struct Token {
-	token_name name;	/* The name or 'class' of token.		 */
-	char* lexeme;		/* The lexeme or 'contents' of token	 */
-	int value;			/* The value or meaning behind a token	 */
-} token;
+#include "lexer.h"
 
 /*
 * token_name_lookup is used to associate a tokens internal name
@@ -104,6 +11,7 @@ typedef struct Token {
 char* token_name_lookup[][2] = {
 	[TOKEN_ADD] = {"TOKEN_ADD", "add"},
 	[TOKEN_AGGR] = {"TOKEN_AGGR", "aggr"},
+	[TOKEN_ALIGN] = {"TOKEN_ALIGN", "align"},
 	[TOKEN_ALLOCA] = {"TOKEN_ALLOCA", "alloca"},
 	[TOKEN_AND] = {"TOKEN_AND", "and"},
 	[TOKEN_ASHR] = {"TOKEN_ASHR", "ashr"},
@@ -112,6 +20,9 @@ char* token_name_lookup[][2] = {
 	[TOKEN_BR] = {"TOKEN_BR", "br"},
 	[TOKEN_BR] = {"TOKEN_BR", "br"},
 	[TOKEN_CALL] = {"TOKEN_CALL", "call"},
+	[TOKEN_CLOSE_BRACKET] = {"TOKEN_CLOSE_BRACKET", "]"},
+	[TOKEN_CLOSE_CURLY_BRACKET] = {"TOKEN_CLOSE_CURLY_BRACKET", "}"},
+	[TOKEN_CLOSE_PAREN] = {"TOKEN_CLOSE_PAREN", "]"},
 	[TOKEN_COMMA] = {"TOKEN_COMMA", ","},
 	[TOKEN_DECLARE] = {"TOKEN_DECLARE", "declare"},
 	[TOKEN_DEFINE] = {"TOKEN_DEFINE", "define"},
@@ -139,8 +50,13 @@ char* token_name_lookup[][2] = {
 	[TOKEN_MALLOC] = {"TOKEN_MALLOC", "malloc"},
 	[TOKEN_MUL] = {"TOKEN_MUL", "mul"},
 	[TOKEN_NULL] = {"TOKEN_NULL", "null"},
+	[TOKEN_NSW] = {"TOKEN_NSW", "nsw"},
+	[TOKEN_OPEN_CURLY_BRACKET] = {"TOKEN_OPEN_CURLY_BRACKET", "{"},
+	[TOKEN_OPEN_BRACKET] = {"TOKEN_OPEN_BRACKET", "("},
+	[TOKEN_OPEN_PAREN] = {"TOKEN_OPEN_PAREN", "["},
 	[TOKEN_OR] = {"TOKEN_OR", "or"},
 	[TOKEN_PHI] = {"TOKEN_PHI", "phi"},
+	[TOKEN_PTR] = {"TOKEN_PTR", "*"},
 	[TOKEN_PTRTOINT] = {"TOKEN_PTRTOINT", "ptrtoint"},
 	[TOKEN_RET] = {"TOKEN_RET", "ret"},
 	[TOKEN_SDIV] = {"TOKEN_SDIV", "sdiv"},
@@ -151,6 +67,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_STACK] = {"TOKEN_STACK", "stack"},
 	[TOKEN_STORE] = {"TOKEN_STORE", "store"},
 	[TOKEN_SUB] = {"TOKEN_SUB", "sub"},
+	[TOKEN_SZ] = {"TOKEN_SZ", "1"},
 	[TOKEN_TO] = {"TOKEN_TO", "to"},
 	[TOKEN_TRUNC] = {"TOKEN_TRUNC", "trunc"},
 	[TOKEN_TYP] = {"TOKEN_TYP", "typ"},
@@ -165,101 +82,6 @@ char* token_name_lookup[][2] = {
 	[TOKEN_ZEROINITIALIZER] = {"TOKEN_ZEROINITIALIZER", "zeroinitializer"},
 	[TOKEN_ZEXT] = {"TOKEN_ZEXT", "zext"},
 };
-
-/* states represents the states that the lexer can have.
-*  where possible, each state is named according to the 
-*  symbols encountered up to that point. 
-* e.g.	STATE_BI means 'b' and 'i' was read.
-*	however this has some exceptions,
-* e.g.	STATE_INTEGERTYPE does not mean read "integertype" but
-*		instead means read an integertype iX for some number x.
-*/
-typedef enum {
-	BEGIN_STATE,
-	END_STATE,
-	ERROR_STATE,
-	STATE_A,
-	STATE_ADD,
-	STATE_AGGR,
-	STATE_ALLOCA,
-	STATE_AND,
-	STATE_ASHR,
-	STATE_B,
-	STATE_BI,
-	STATE_BIGENDIAN,
-	STATE_BITCAST,
-	STATE_BR,
-	STATE_CALL,
-	STATE_COMMA,
-	STATE_D,
-	STATE_DE,
-	STATE_DECLARE,
-	STATE_DEFINE,
-	STATE_DOUBLE,
-	STATE_EQUALS,
-	STATE_F,
-	STATE_FADD,
-	STATE_FCMP,
-	STATE_FDIV,
-	STATE_FLOAT,
-	STATE_FMUL,
-	STATE_FP,
-	STATE_FPEXT,
-	STATE_FPTOUI,
-	STATE_FRE,
-	STATE_FREE,
-	STATE_FREM,
-	STATE_FSUB,
-	STATE_G,
-	STATE_GETELEMENTPTR,
-	STATE_GLOBAL,
-	STATE_I,
-	STATE_ICMP,
-	STATE_IDENTIFIER,
-	STATE_INTEGERTYPE,
-	STATE_INTTOPTR,
-	STATE_L,
-	STATE_LITTLEENDIAN,
-	STATE_LOAD,
-	STATE_LSHR,
-	STATE_M,
-	STATE_MALLOC,
-	STATE_MUL,
-	STATE_NULL,
-	STATE_OR,
-	STATE_P,
-	STATE_PHI,
-	STATE_PTRTOINT,
-	STATE_RET,
-	STATE_S,
-	STATE_SDIV,
-	STATE_SE,
-	STATE_SELECT,
-	STATE_SEXT,
-	STATE_SHL,
-	STATE_SREM,
-	STATE_ST,
-	STATE_STACK,
-	STATE_STORE,
-	STATE_SUB,
-	STATE_T,
-	STATE_TO,
-	STATE_TRUNC,
-	STATE_TYP,
-	STATE_U,
-	STATE_UDIV,
-	STATE_UN,
-	STATE_UNDEF,
-	STATE_UNREACHABLE,
-	STATE_UREM,
-	STATE_V,
-	STATE_VAL,
-	STATE_VOID,
-	STATE_XOR,
-	STATE_ZE,
-	STATE_ZEROINITIALIZER,
-	STATE_ZEXT
-} state;
 
 /*
 * make_token generates a token struct from given data.
@@ -338,8 +160,7 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_M;
 						continue;
 					case 'n':
-						current_state = match(
-							ci, "ull", STATE_NULL);
+						current_state = STATE_N;
 						continue;
 					case 'o':
 						current_state = match(ci, "r", STATE_OR);
@@ -377,11 +198,44 @@ struct Token *tokenize(char* input) {
 					case '%':
 						current_state = STATE_IDENTIFIER;
 						continue;
+					case '@':
+						current_state = STATE_IDENTIFIER;
+						continue;
+					case '#':
+						current_state = STATE_IDENTIFIER;
+						continue;
 					case '=':
 						current_state = match(ci, "", STATE_EQUALS);
 						continue;
+					case '(':
+						current_state = match(ci, "", STATE_OPEN_PAREN);
+						continue;
+					case ')':
+						current_state = match(ci, "", STATE_CLOSE_PAREN);
+						continue;
+					case '[':
+						current_state = match(ci, "", STATE_OPEN_BRACKET);
+						continue;
+					case ']':
+						current_state = match(ci, "", STATE_CLOSE_BRACKET);
+						continue;
+					case '{':
+						current_state = match(ci, "", STATE_OPEN_CURLY_BRACKET);
+						continue;
+					case '}':
+						current_state = match(ci, "", STATE_CLOSE_CURLY_BRACKET);
+						continue;
 					case ',':
 						current_state = match(ci, "", STATE_COMMA);
+						continue;
+					case '*':
+						current_state = match(ci, "", STATE_PTR);
+						continue;
+					case '0': 
+					case '1': case '2': case '3': 
+					case '4': case '5': case '6': 
+					case '7': case '8': case '9': 
+						current_state = STATE_SZ;
 						continue;
 					default: 
 						current_state = ERROR_STATE;
@@ -400,7 +254,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "gr", STATE_AGGR);
 						continue;
 					case 'l':
-						current_state = match(ci, "loca", STATE_ALLOCA);
+						current_state = STATE_AL;
 						continue;
 					case 'n':
 						current_state = match(ci, "d", STATE_AND);
@@ -415,6 +269,21 @@ struct Token *tokenize(char* input) {
 
 			case STATE_ADD: return make_token(TOKEN_ADD, input, NULL);
 			case STATE_AGGR: return make_token(TOKEN_AGGR, input, NULL);
+
+			case STATE_AL:
+					switch (*ci++) {
+					case 'i':
+						current_state = match(ci, "gn", STATE_ALIGN);
+						continue;
+					case 'l':
+						current_state = match(ci, "oca", STATE_ALLOCA);
+						continue;
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
+
+			case STATE_ALIGN: return make_token(TOKEN_ALIGN, input, NULL);
 			case STATE_ALLOCA: return make_token(TOKEN_ALLOCA, input, NULL);
 			case STATE_AND: return make_token(TOKEN_AND, input, NULL);
 			case STATE_ASHR: return make_token(TOKEN_ASHR, input, NULL);
@@ -454,6 +323,10 @@ struct Token *tokenize(char* input) {
 			case STATE_BR: return make_token(TOKEN_BR, input, NULL);
 
 			case STATE_CALL: return make_token(TOKEN_CALL, input, NULL);
+
+			case STATE_CLOSE_CURLY_BRACKET: return make_token(TOKEN_CLOSE_CURLY_BRACKET, input, NULL);
+			case STATE_CLOSE_BRACKET: return make_token(TOKEN_CLOSE_BRACKET, input, NULL);
+			case STATE_CLOSE_PAREN: return make_token(TOKEN_CLOSE_PAREN, input, NULL);
 			case STATE_COMMA: return make_token(TOKEN_COMMA, input, NULL);
 
 			case STATE_D: 
@@ -676,8 +549,25 @@ struct Token *tokenize(char* input) {
 			case STATE_MALLOC: return make_token(TOKEN_MALLOC, input, NULL);
 			case STATE_MUL: return make_token(TOKEN_MUL, input, NULL);
 
+			case STATE_N: 
+				switch (*ci++) {
+					case 's':
+						current_state = match(ci, "w", STATE_NSW);
+						continue;
+					case 'u':
+						current_state = match(ci, "ll", STATE_NULL);
+						continue;
+					default:
+						current_state = ERROR_TOKEN;
+						continue;
+				}
+
+			case STATE_NSW: return make_token(TOKEN_NSW, input, NULL);
 			case STATE_NULL:return make_token(TOKEN_NULL, input, NULL);
 
+			case STATE_OPEN_CURLY_BRACKET: return make_token(TOKEN_OPEN_CURLY_BRACKET, input, NULL);
+			case STATE_OPEN_BRACKET: return make_token(TOKEN_OPEN_BRACKET, input, NULL);
+			case STATE_OPEN_PAREN: return make_token(TOKEN_OPEN_PAREN, input, NULL);
 			case STATE_OR: return make_token(TOKEN_OR, input, NULL);
 
 			case STATE_P: 
@@ -697,6 +587,7 @@ struct Token *tokenize(char* input) {
 				
 
 			case STATE_PHI: return make_token(TOKEN_PHI, input, NULL);
+			case STATE_PTR: return make_token(TOKEN_PTR, input, NULL);
 			case STATE_PTRTOINT: return make_token(TOKEN_PTRTOINT, input, NULL);
 
 			case STATE_RET: return make_token(TOKEN_RET, input, NULL);
@@ -762,6 +653,20 @@ struct Token *tokenize(char* input) {
 			case STATE_STACK: return make_token(TOKEN_STACK, input, NULL);
 			case STATE_STORE: return make_token(TOKEN_STORE, input, NULL);
 			case STATE_SUB: return make_token(TOKEN_SUB, input, NULL);
+			
+			case STATE_SZ: 
+				switch (*ci++) {
+					case '0':
+					case '1': case '2': case '3':
+					case '4': case '5': case '6':
+					case '7': case '8': case '9':
+						continue;
+					case NULL:
+						return make_token(TOKEN_SZ, input, atoi(input));
+					default:
+						current_state = ERROR_STATE;
+						continue;
+				}
 
 			case STATE_T: 
 				switch (*ci++) {
@@ -852,6 +757,10 @@ struct Token *tokenize(char* input) {
 
 			case STATE_ZEROINITIALIZER: return make_token(TOKEN_ZEROINITIALIZER, input, NULL);
 			case STATE_ZEXT: return make_token(TOKEN_ZEXT, input, NULL);
+
+			default: /* invalid state */
+				current_state = ERROR_STATE;
+				continue;
 		}
 	}
 }
@@ -908,8 +817,10 @@ bool is_delimiter(char chr) {
 	switch (chr) {
 		case ' ': case '\t': 
 		case '\n': case EOF:
-		case '[': case ']': case ',': case ';':
-		case NULL:
+		case '[': case ']': 
+		case '(': case ')':
+		case ',': case ';':
+		case '*': case NULL:
 			return true;
 		default: 
 			return false;
@@ -921,7 +832,7 @@ bool is_delimiter(char chr) {
 	Assuming a well-formed input, one token
 	can be made from each word.
 */
-char* preprocessor(char* input, char **output) {
+void preprocessor(char* input, char **output) {
 	char* buffer = malloc(PREPROCESSOR_WORD_SIZE);
 
 	char oi = 0, bi = 0; // output and buffer index
@@ -953,9 +864,9 @@ char* preprocessor(char* input, char **output) {
 		
 		// Case 2. This a valid character in word.
 		buffer[bi++] = *ci;
-		// Case 2.1. This is the last character in word.
+		// Case 2.2. This is the last character in word.
 		
-		if (is_delimiter(*(ci + 1))) {
+		if (is_delimiter(*ci) || is_delimiter(*(ci + 1))) {
 			// If so finish word.
 			buffer[bi] = NULL;
 			// Then add word to output.
@@ -994,40 +905,24 @@ void test_tokenize() {
 	}
 }
 
+void print_token(token** tk) {
+	char* field_format = "%-24s\t%-16s\t%-8d\n";
+	printf(field_format,
+		lookup_token_as_name((**tk).name),
+		(**tk).lexeme,
+		(**tk).value);
+}
+
 /* print_token_list prints a given list of pointers to tokens, 
 *  including all of their field contents.
 */
 void print_token_list(token **tokens) {
 	token **tk = tokens;
-	char* header_format = "%16s\t%16s\t%16s\n";
-	char* field_format = "%16s\t%16s\t%16d\n";
+	char* header_format = "%-24s\t%-16s\t%-8s\n";
 	printf(header_format, "Token Name", "Token Lexeme", "Token Value");
 	printf(header_format, "----------", "------------", "-----------");
 	while (*tk != NULL) {
-		printf(field_format,
-			lookup_token_as_name((**tk).name),
-			(**tk).lexeme,
-			(**tk).value);
-		tk++;
+		print_token(tk++);
 	};
 }
 
-/*
-	The job of main here is to act as a pipeline
-	where input comes in as a char[] in source form
-	and output comes out as a token[] in tokenized form.
-*/
-void main(int argc, char* argv[])
-{
-	if (DEBUG_TEST_TOKENIZER) {
-		test_tokenize();
-	}
-	char *words[PREPROCESSOR_BUFFER_SIZE];
-	preprocessor(
-		"%0 = add i32 %X, %X; yields i32:%0\n\
-		 %1 = add i32 %0, %0; yields i32 : %1\n\
-		 %result = add i32 %1, %1", words);
-	token *tokens[TOKENS_BUFFER_SIZE];
-	tokenizer(words, tokens);
-	print_token_list(tokens);
-}
