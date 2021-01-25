@@ -17,6 +17,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_ASHR] = {"TOKEN_ASHR", "ashr"},
 	[TOKEN_BIGENDIAN] = {"TOKEN_BIGENDIAN", "bigendian"},
 	[TOKEN_BITCAST] = {"TOKEN_BITCAST", "bitcast"},
+	[TOKEN_BLOCKLABEL] = {"TOKEN_LABEL", "entry:"},
 	[TOKEN_BR] = {"TOKEN_BR", "br"},
 	[TOKEN_BR] = {"TOKEN_BR", "br"},
 	[TOKEN_CALL] = {"TOKEN_CALL", "call"},
@@ -26,6 +27,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_COMMA] = {"TOKEN_COMMA", ","},
 	[TOKEN_DECLARE] = {"TOKEN_DECLARE", "declare"},
 	[TOKEN_DEFINE] = {"TOKEN_DEFINE", "define"},
+	[TOKEN_DOTDOTDOT] = {"TOKEN_DOTDOTDOT", "..."},
 	[TOKEN_DOUBLE] = {"TOKEN_DOUBLE", "double"},
 	[TOKEN_EQUALS] = {"TOKEN_EQUALS", "="},
 	[TOKEN_FADD] = {"TOKEN_FADD", "fadd"},
@@ -42,9 +44,11 @@ char* token_name_lookup[][2] = {
 	[TOKEN_GLOBAL] = {"TOKEN_GLOBAL", "global"},
 	[TOKEN_ICMP] = {"TOKEN_ICMP", "icmp"},
 	[TOKEN_IDENTIFIER] = {"TOKEN_IDENTIFIER", "%identifier"},
+	[TOKEN_INBOUNDS] = {"TOKEN_INBOUNDS", "inbounds"},
 	[TOKEN_INTEGERTYPE] = {"TOKEN_INTEGERTYPE", "i32"},
 	[TOKEN_INTTOPTR] = {"TOKEN_INTTOPTR", "inttoptr"},
 	[TOKEN_LITTLEENDIAN] = {"TOKEN_LITTLEENDIAN", "littleendian"},
+	[TOKEN_LABEL] = {"TOKEN_LABEL", "label"},
 	[TOKEN_LOAD] = {"TOKEN_LOAD", "load"},
 	[TOKEN_LSHR] = {"TOKEN_LSHR", "lshr"},
 	[TOKEN_MALLOC] = {"TOKEN_MALLOC", "malloc"},
@@ -52,8 +56,8 @@ char* token_name_lookup[][2] = {
 	[TOKEN_NULL] = {"TOKEN_NULL", "null"},
 	[TOKEN_NSW] = {"TOKEN_NSW", "nsw"},
 	[TOKEN_OPEN_CURLY_BRACKET] = {"TOKEN_OPEN_CURLY_BRACKET", "{"},
-	[TOKEN_OPEN_BRACKET] = {"TOKEN_OPEN_BRACKET", "("},
-	[TOKEN_OPEN_PAREN] = {"TOKEN_OPEN_PAREN", "["},
+	[TOKEN_OPEN_BRACKET] = {"TOKEN_OPEN_BRACKET", "["},
+	[TOKEN_OPEN_PAREN] = {"TOKEN_OPEN_PAREN", "("},
 	[TOKEN_OR] = {"TOKEN_OR", "or"},
 	[TOKEN_PHI] = {"TOKEN_PHI", "phi"},
 	[TOKEN_PTR] = {"TOKEN_PTR", "*"},
@@ -62,6 +66,8 @@ char* token_name_lookup[][2] = {
 	[TOKEN_SDIV] = {"TOKEN_SDIV", "sdiv"},
 	[TOKEN_SELECT] = {"TOKEN_SELECT", "select"},
 	[TOKEN_SEXT] = {"TOKEN_SEXT", "sext"},
+	[TOKEN_SLE] = {"TOKEN_SLE", "sle"},
+	[TOKEN_SLT] = {"TOKEN_SLT", "slt"},
 	[TOKEN_SHL] = {"TOKEN_SHL", "shl"},
 	[TOKEN_SREM] = {"TOKEN_SREM", "srem"},
 	[TOKEN_STACK] = {"TOKEN_STACK", "stack"},
@@ -78,6 +84,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_VAL] = {"TOKEN_VAL", "val"},
 	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
 	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
+	[TOKEN_X] = {"TOKEN_X", "x"},
 	[TOKEN_XOR] = {"TOKEN_XOR", "xor"},
 	[TOKEN_ZEROINITIALIZER] = {"TOKEN_ZEROINITIALIZER", "zeroinitializer"},
 	[TOKEN_ZEXT] = {"TOKEN_ZEXT", "zext"},
@@ -111,7 +118,7 @@ state match(char* input, char* expected, state result) {
 	if (strcmp(input, expected) == 0) {
 		return result;
 	} else {
-		return ERROR_STATE;
+		return STATE_UNRECOGNISED;
 	}
 }
 
@@ -131,119 +138,135 @@ struct Token *tokenize(char* input) {
 
 			case BEGIN_STATE:
 				switch (*ci++) {
-					case 'a':
-						current_state = STATE_A;
+				case 'a':
+					current_state = STATE_A;
+					continue;
+				case 'b':
+					current_state = STATE_B;
+					continue;
+				case 'c':
+					current_state = match(
+						ci, "all", STATE_CALL);
+					continue;
+				case 'd':
+					current_state = STATE_D;
+					continue;
+				case 'f':
+					current_state = STATE_F;
+					continue;
+				case 'g':
+					current_state = STATE_G;
+					continue;
+				case 'i':
+					current_state = STATE_I;
+					continue;
+				case 'l':
+					current_state = STATE_L;
+					continue;
+				case 'm':
+					current_state = STATE_M;
+					continue;
+				case 'n':
+					current_state = STATE_N;
+					continue;
+				case 'o':
+					current_state = match(ci, "r", STATE_OR);
+					continue;
+				case 'p':
+					current_state = STATE_P;
+					continue;
+				case 'r':
+					current_state = match(ci, "et", STATE_RET);
+					continue;
+				case 's':
+					current_state = STATE_S;
+					continue;
+				case 't':
+					current_state = STATE_T;
+					continue;
+				case 'u':
+					current_state = STATE_U;
+					continue;
+				case 'v':
+					current_state = STATE_V;
+					continue;
+				case 'x':
+					if (*ci == NULL) {
+						current_state = STATE_X;
 						continue;
-					case 'b':
-						current_state = STATE_B;
+					} 
+					current_state = match(ci, "or", STATE_XOR);
+					continue;
+				case 'z':
+					if (*ci++ == 'e') {
+						current_state = STATE_ZE;
 						continue;
-					case 'c':
-						current_state = match(
-							ci, "all", STATE_CALL);
+					}
+					else {
+						current_state = STATE_UNRECOGNISED;
 						continue;
-					case 'd':
-						current_state = STATE_D;
-						continue;
-					case 'f':
-						current_state = STATE_F;
-						continue;
-					case 'g':
-						current_state = STATE_G;
-						continue;
-					case 'i':
-						current_state = STATE_I;
-						continue;
-					case 'l':
-						current_state = STATE_L;
-						continue;
-					case 'm':
-						current_state = STATE_M;
-						continue;
-					case 'n':
-						current_state = STATE_N;
-						continue;
-					case 'o':
-						current_state = match(ci, "r", STATE_OR);
-						continue;
-					case 'p':
-						current_state = STATE_P;
-						continue;
-					case 'r':
-						current_state = match(ci, "et", STATE_RET);
-						continue;
-					case 's':
-						current_state = STATE_S;
-						continue;
-					case 't':
-						current_state = STATE_T;
-						continue;
-					case 'u':
-						current_state = STATE_U;
-						continue;
-					case 'v':
-						current_state = STATE_V;
-						continue;
-					case 'x':
-						current_state = match(ci, "or", STATE_XOR);
-						continue;
-					case 'z':
-						if (*ci++ == 'e') {
-							current_state = STATE_ZE;
-							continue;
-						}
-						else {
-							current_state = ERROR_STATE;
-							continue;
-						}
-					case '%':
-						current_state = STATE_IDENTIFIER;
-						continue;
-					case '@':
-						current_state = STATE_IDENTIFIER;
-						continue;
-					case '#':
-						current_state = STATE_IDENTIFIER;
-						continue;
-					case '=':
-						current_state = match(ci, "", STATE_EQUALS);
-						continue;
-					case '(':
-						current_state = match(ci, "", STATE_OPEN_PAREN);
-						continue;
-					case ')':
-						current_state = match(ci, "", STATE_CLOSE_PAREN);
-						continue;
-					case '[':
-						current_state = match(ci, "", STATE_OPEN_BRACKET);
-						continue;
-					case ']':
-						current_state = match(ci, "", STATE_CLOSE_BRACKET);
-						continue;
-					case '{':
-						current_state = match(ci, "", STATE_OPEN_CURLY_BRACKET);
-						continue;
-					case '}':
-						current_state = match(ci, "", STATE_CLOSE_CURLY_BRACKET);
-						continue;
-					case ',':
-						current_state = match(ci, "", STATE_COMMA);
-						continue;
-					case '*':
-						current_state = match(ci, "", STATE_PTR);
-						continue;
-					case '0': 
-					case '1': case '2': case '3': 
-					case '4': case '5': case '6': 
-					case '7': case '8': case '9': 
-						current_state = STATE_SZ;
-						continue;
-					default: 
-						current_state = ERROR_STATE;
-						continue;
-				}
-				break;
+					}
+				case '%':
+					current_state = STATE_IDENTIFIER;
+					continue;
+				case '@':
+					current_state = STATE_IDENTIFIER;
+					continue;
+				case '#':
+					current_state = STATE_IDENTIFIER;
+					continue;
+				case '=':
+					current_state = match(ci, "", STATE_EQUALS);
+					continue;
+				case '(':
+					current_state = match(ci, "", STATE_OPEN_PAREN);
+					continue;
+				case ')':
+					current_state = match(ci, "", STATE_CLOSE_PAREN);
+					continue;
+				case '[':
+					current_state = match(ci, "", STATE_OPEN_BRACKET);
+					continue;
+				case ']':
+					current_state = match(ci, "", STATE_CLOSE_BRACKET);
+					continue;
+				case '{':
+					current_state = match(ci, "", STATE_OPEN_CURLY_BRACKET);
+					continue;
+				case '}':
+					current_state = match(ci, "", STATE_CLOSE_CURLY_BRACKET);
+					continue;
+				case ',':
+					current_state = match(ci, "", STATE_COMMA);
+					continue;
+				case '.':
+					current_state = match(ci, "..", STATE_DOTDOTDOT);
+					continue;
+				case '*':
+					current_state = match(ci, "", STATE_PTR);
+					continue;
+				case '0': 
+				case '1': case '2': case '3': 
+				case '4': case '5': case '6': 
+				case '7': case '8': case '9': 
+					current_state = STATE_SZ;
+					continue;
+				default: 
+					current_state = STATE_UNRECOGNISED;
+					continue;
+			}
+			break;
 
-			case ERROR_STATE: return make_token(ERROR_TOKEN, input, NULL);
+			case STATE_UNRECOGNISED: 
+				; char* c = input
+				; bool is_label = true;
+				// Check if it is a label
+				for (; *(c + 1) != NULL; c++) {
+					if (!isalpha(*c)) { printf("GOTHERE"); is_label = false; break; }
+				}
+				if (is_label && *c == ':') { current_state = STATE_BLOCK_LABEL; continue; }
+				// If we get here it is not.
+				return make_token(ERROR_TOKEN, input, NULL);
 
 			case STATE_A: 
 				switch (*ci++) {
@@ -263,7 +286,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "hr", STATE_ASHR);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 				}
 				break;
 
@@ -279,7 +302,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "oca", STATE_ALLOCA);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -297,7 +320,7 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_BR;
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 				break;
@@ -313,7 +336,7 @@ struct Token *tokenize(char* input) {
 							ci, "cast", STATE_BITCAST);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 				break;
@@ -339,7 +362,7 @@ struct Token *tokenize(char* input) {
 							ci, "uble", STATE_DOUBLE);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				};
 
@@ -352,12 +375,13 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_DEFINE;
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
 			case STATE_DECLARE: return make_token(TOKEN_DECLARE, input, NULL);
 			case STATE_DEFINE:return make_token(TOKEN_DEFINE, input, NULL);
+			case STATE_DOTDOTDOT: return make_token(TOKEN_DOTDOTDOT, input, NULL);
 			case STATE_DOUBLE: return make_token(TOKEN_DOUBLE, input, NULL);
 			case STATE_EQUALS: return make_token(TOKEN_EQUALS, input, NULL);;
 
@@ -392,14 +416,14 @@ struct Token *tokenize(char* input) {
 								current_state = STATE_FRE;
 								continue;
 							default:
-								current_state = ERROR_STATE;
+								current_state = STATE_UNRECOGNISED;
 								continue;
 						}
 					case 's':
 						current_state = match(ci, "ub", STATE_FSUB);
 						continue;
 					default: 
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -420,7 +444,7 @@ struct Token *tokenize(char* input) {
 							ci, "oui", STATE_FPTOUI);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -437,7 +461,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "", STATE_FREM);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -456,7 +480,7 @@ struct Token *tokenize(char* input) {
 							ci, "obal", STATE_GLOBAL);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 			case STATE_GETELEMENTPTR: return make_token(TOKEN_GETELEMENTPTR, input, NULL);
@@ -469,15 +493,8 @@ struct Token *tokenize(char* input) {
 							ci, "mp", STATE_ICMP);
 						continue;
 					case 'n':
-						if (*ci++ == 't') {
-							current_state = match(
-								ci, "toptr", STATE_INTTOPTR);
-							continue;
-						}
-						else {
-							current_state = ERROR_STATE;
-							continue;
-						}
+						current_state = STATE_IN;
+						continue;
 					case '0': 
 					case '1': case '2': case '3':
 					case '4': case '5': case '6': 
@@ -485,12 +502,26 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_INTEGERTYPE;
 						continue;
 					default:
-						current_state = ERROR_STATE;;
+						current_state = STATE_UNRECOGNISED;;
+						continue;
+				}
+
+			case STATE_IN:
+				switch (*ci++) {
+					case 'b':
+						current_state = match(ci, "ounds", STATE_INBOUNDS);
+						continue;
+					case 't':
+						current_state = match(ci, "optr", STATE_INTTOPTR);
+						continue;
+					default: 
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
 			case STATE_ICMP: return make_token(TOKEN_ICMP, input, NULL);
 			case STATE_IDENTIFIER: return make_token(TOKEN_IDENTIFIER, input, NULL);
+			case STATE_INBOUNDS:  return make_token(TOKEN_INBOUNDS, input, NULL);
 
 			case STATE_INTEGERTYPE:
 				switch (*ci++) {
@@ -502,7 +533,7 @@ struct Token *tokenize(char* input) {
 					case NULL:
 						return make_token(TOKEN_INTEGERTYPE, input, atoi(input+1));
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -510,24 +541,29 @@ struct Token *tokenize(char* input) {
 
 			case STATE_L: 
 				switch (*ci++) {
-				case 'i':
-					current_state = match(
-						ci, "ttleendian", STATE_LITTLEENDIAN);
-					continue;
-				case 'o':
-					current_state = match(
-						ci, "ad", STATE_LOAD);
-					continue;
-				case 's':
-					current_state = match(
-						ci, "hr", STATE_LSHR);
-					continue;
-				default:
-					current_state = ERROR_TOKEN;
-					continue;
+					case 'a':
+						current_state = match(ci, "bel", STATE_LABEL);
+						continue;
+					case 'i':
+						current_state = match(
+							ci, "ttleendian", STATE_LITTLEENDIAN);
+						continue;
+					case 'o':
+						current_state = match(
+							ci, "ad", STATE_LOAD);
+						continue;
+					case 's':
+						current_state = match(
+							ci, "hr", STATE_LSHR);
+						continue;
+					default:
+						current_state = ERROR_TOKEN;
+						continue;
 				}
 
+			case STATE_BLOCK_LABEL: return make_token(TOKEN_BLOCKLABEL, input, NULL);
 			case STATE_LITTLEENDIAN: return make_token(TOKEN_LITTLEENDIAN, input, NULL);
+			case STATE_LABEL: return make_token(TOKEN_LABEL, input, NULL);
 			case STATE_LOAD: return make_token(TOKEN_LOAD, input, NULL);
 			case STATE_LSHR: return make_token(TOKEN_LSHR, input, NULL);
 
@@ -581,7 +617,7 @@ struct Token *tokenize(char* input) {
 						ci, "rtoint", STATE_PTRTOINT);
 					continue;
 				default:
-					current_state = ERROR_STATE;
+					current_state = STATE_UNRECOGNISED;
 					continue;
 				}
 				
@@ -603,6 +639,9 @@ struct Token *tokenize(char* input) {
 					case 'h':
 						current_state = match(ci, "l", STATE_SHL);
 						continue;
+					case 'l':
+						current_state = STATE_SL;
+						continue;
 					case 'r':
 						current_state = match(ci, "em", STATE_SREM);
 						continue;
@@ -613,7 +652,21 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "b", STATE_SUB);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+			
+
+			case STATE_SL:
+				switch (*ci++) {
+					case 'e':
+						current_state = match(ci, "", STATE_SLE);
+						continue;
+					case 't':
+						current_state = match(ci, "", STATE_SLT);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -628,13 +681,16 @@ struct Token *tokenize(char* input) {
 					current_state = match(ci, "t", STATE_SEXT);
 					continue;
 				default: 
-					current_state = ERROR_STATE;
+					current_state = STATE_UNRECOGNISED;
 					continue;
 				};
 
 			case STATE_SELECT: return make_token(TOKEN_SELECT, input, NULL);
 			case STATE_SEXT: return make_token(TOKEN_SEXT, input, NULL);
 			case STATE_SHL: return make_token(TOKEN_SHL, input, NULL);
+			case STATE_SLT: return make_token(TOKEN_SLT, input, NULL);
+			case STATE_SLE: return make_token(TOKEN_SLE, input, NULL);
+
 			case STATE_SREM: return make_token(TOKEN_SREM, input, NULL);
 
 			case STATE_ST: 
@@ -646,7 +702,7 @@ struct Token *tokenize(char* input) {
 					current_state = match(ci, "re", STATE_STORE);
 					continue;
 				default: 
-					current_state = ERROR_STATE;
+					current_state = STATE_UNRECOGNISED;
 					continue;
 				}
 
@@ -664,7 +720,7 @@ struct Token *tokenize(char* input) {
 					case NULL:
 						return make_token(TOKEN_SZ, input, atoi(input));
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -680,7 +736,7 @@ struct Token *tokenize(char* input) {
 					current_state = match(ci, "p", STATE_TYP);
 					continue;
 				default:
-					current_state = ERROR_STATE;
+					current_state = STATE_UNRECOGNISED;
 					continue;
 				}
 
@@ -700,7 +756,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "em", STATE_UREM);
 						continue;
 					default: 
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -715,7 +771,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "eachable", STATE_UNREACHABLE);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -732,12 +788,13 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "id", STATE_VOID);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
 			case STATE_VAL: return make_token(TOKEN_VAL, input, NULL);
 			case STATE_VOID: return make_token(TOKEN_VOID, input, NULL);
+			case STATE_X: return make_token(TOKEN_X, input, NULL);
 			case STATE_XOR: return make_token(TOKEN_XOR, input, NULL);
 
 			case STATE_ZE:
@@ -751,7 +808,7 @@ struct Token *tokenize(char* input) {
 							ci, "t", STATE_ZEXT);
 						continue;
 					default:
-						current_state = ERROR_STATE;
+						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
@@ -759,7 +816,7 @@ struct Token *tokenize(char* input) {
 			case STATE_ZEXT: return make_token(TOKEN_ZEXT, input, NULL);
 
 			default: /* invalid state */
-				current_state = ERROR_STATE;
+				current_state = STATE_UNRECOGNISED;
 				continue;
 		}
 	}
@@ -835,7 +892,7 @@ bool is_delimiter(char chr) {
 void preprocessor(char* input, char **output) {
 	char* buffer = malloc(PREPROCESSOR_WORD_SIZE);
 
-	char oi = 0, bi = 0; // output and buffer index
+	int oi = 0, bi = 0; // output and buffer index
 	char* ci = input; // Character index
 	// For each character in input
 	bool in_comment = false;
