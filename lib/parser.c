@@ -60,15 +60,19 @@ typedef enum  ParsingStates {
 	ENCOUNTERED_GETELEMENTPTR,
 	ENCOUNTERED_GETELEMENTPTR_TYP,
 	ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR,
-	ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL,
-	ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL_TYP,
-	ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL_TYP_VAL,
+	ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT,
+	ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT_CONSTANT,
 	ENCOUNTERED_INTEGERTYPE,
 	ENCOUNTERED_ID,
 	ENCOUNTERED_ID_EQ,
 	ENCOUNTERED_ID_EQ_BOP,
 	ENCOUNTERED_ID_EQ_BOP_INTEGERTYPE,
 	ENCOUNTERED_ID_EQ_BOP_INTEGERTYPE_VAL,
+	ENCOUNTERED_ID_EQ_CALL,
+	ENCOUNTERED_ID_EQ_CALL_TYP,
+	ENCOUNTERED_ID_EQ_CALL_TYP_ID,
+	ENCOUNTERED_ID_EQ_CALL_TYP_ID_TYP,
+	ENCOUNTERED_ID_EQ_CALL_TYP_ID_PARAM,
 	ENCOUNTERED_ID_EQ_FBOP_INTEGERTYPE_ID_COMMA_ID,
 	ENCOUNTERED_ID_EQ_GETELEMENTPTR,
 	ENCOUNTERED_ID_EQ_GETELEMENTPTR_TYP,
@@ -339,6 +343,7 @@ struct ast_node* match_constant(token** tokens) {
 	token** tk = tokens;
 
 	while (true) {
+		printf(">%s\n", lookup_token_as_name((*tk)->name));
 
 		switch (state) {
 
@@ -347,54 +352,43 @@ struct ast_node* match_constant(token** tokens) {
 				switch ((*tk)->name) {
 
 					case TOKEN_INTEGERTYPE:
-						if ((*(tk + 1))->name == TOKEN_SZ) {
-							stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
-							stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
-							state = ENCOUNTERED_CONSTANT;
-							continue;
+						 switch((*(tk+1))->name) {
+							case TOKEN_IDENTIFIER:
+							case TOKEN_SZ:
+							case TOKEN_TRUE:
+							case TOKEN_FALSE:
+								stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+								stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+								state = ENCOUNTERED_CONSTANT;
+								continue;
 						}
-						break;
+
+						 if (stack[si] = match_typ(tk)) {
+							 tk += stack[si]->size; si++;
+							 state = ENCOUNTERED_TYP;
+						 }						
 
 					//case TOKEN_FP:
 					//case TOKEN_OPEN_CURLY_BRACKET:
 						// TODO:
 				}
-
-				if (stack[si] = match_typ(tk)) {
-					tk += stack[si]->size; si++;
-					state = ENCOUNTERED_TYP;
-					continue;
-				}
+				continue;
 				
-
-
 			case ENCOUNTERED_TYP:
-			
 				if ((*(tk - 1))->name == TOKEN_PTR) {
 					state = ENCOUNTERED_TYP_PTR;
 					continue;
 				}
 				continue;
 
-
 			case ENCOUNTERED_TYP_PTR:
-
 				if ((*tk)->name == TOKEN_IDENTIFIER) {
 					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
 					state = ENCOUNTERED_CONSTANT;
 					continue;
 				}
 				continue;
-
-
-
-			case ENCOUNTERED_INTEGERTYPE:
-				if ((*tk)->name == TOKEN_SZ) {
-					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
-					state = ENCOUNTERED_CONSTANT;
-				}
-				continue;
-		
+				
 			case ENCOUNTERED_CONSTANT:
 				constant = create_ast_node(AST_CONSTANT, 0);
 				for (int i = 0; i < si; i++) {
@@ -473,44 +467,60 @@ struct ast_node* match_val(token** tokens) {
 				continue;
 
 			case ENCOUNTERED_GETELEMENTPTR_TYP:
+				printf("\nENCOUNTERED_GETELEMENTPTR_TYP");
+
 				if (stack[si] = match_typ(tk)) {
 					tk += stack[si]->size; si++;
+					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR;
 					if ((*tk)->name == TOKEN_COMMA) {
 						tk++; tokens_skipped++;
 					}
-					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR;
 				}
 				continue;
 
 			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR:
-				if (stack[si] = match_val(tk)) {
+
+				printf("ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR\n");
+				printf("->%s\n", lookup_token_as_name((*tk)->name));
+
+				if ((*tk)->name == TOKEN_IDENTIFIER) {
 					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+				}
+
+				if ((*tk)->name == TOKEN_COMMA) {
+					tk++; tokens_skipped++;
+				}
+				
+				if (stack[si] = match_constant(tk)) { 
+					tk += stack[si]->size; si++;
+					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT;
 					if ((*tk)->name == TOKEN_COMMA) {
 						tk++; tokens_skipped++;
 					}
-					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL;
 				}
 				continue;
 
-			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL:
-				if (stack[si] = match_typ(tk)) {
-					tk += stack[si]->size; si++;
-					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL_TYP;
-				} 
-				continue;
+			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT:
+				printf("ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT\n");
 
-
-			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL_TYP:
-				if (stack[si] = match_val(tk)) {
+				if (stack[si] = match_constant(tk)) {
 					tk += stack[si]->size; si++;
-					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL_TYP_VAL;
+					if ((*tk)->name == TOKEN_CLOSE_PAREN) {
+						tk++; tokens_skipped++;
+					}
+					if ((*tk)->name == TOKEN_COMMA) {
+						tk++; tokens_skipped++;
+					}
+					state = ENCOUNTERED_VAL;
 				}
 				continue;
 
-			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL_TYP_VAL:
+			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT_CONSTANT:
+				printf("ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT_CONSTANT\n");
+
 				if ((*tk)->name == TOKEN_COMMA) {
 					tk++; tokens_skipped++;
-					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_VAL;
+					state = ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT;
 					continue;
 				}
 				else if ((*tk)->name == TOKEN_CLOSE_PAREN) {
@@ -611,6 +621,10 @@ struct ast_node *match_command(token** tokens) {
 
 			case ENCOUNTERED_ID_EQ:
 				switch ((*tk)->name) {
+					case TOKEN_CALL:
+						stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+						state = ENCOUNTERED_ID_EQ_CALL;
+						continue;
 					case TOKEN_ICMP:
 						stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
 						state = ENCOUNTERED_ID_EQ_ICMP;
@@ -658,6 +672,47 @@ struct ast_node *match_command(token** tokens) {
 				}
 				return NULL;
 
+			case ENCOUNTERED_ID_EQ_CALL:
+				if (stack[si] = match_typ(tk)) {
+					tk += stack[si]->size; si++;
+					state = ENCOUNTERED_ID_EQ_CALL_TYP;
+				}
+				continue;
+
+			case ENCOUNTERED_ID_EQ_CALL_TYP:
+				if ((*tk)->name == TOKEN_IDENTIFIER) {
+					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+					state = ENCOUNTERED_ID_EQ_CALL_TYP_ID;
+					continue;
+				}
+				continue;
+
+			case ENCOUNTERED_ID_EQ_CALL_TYP_ID:
+				if ((*tk)->name == TOKEN_OPEN_PAREN) {
+					tk++; tokens_skipped++;
+				}
+				if (stack[si] = match_val(tk)) {
+					tk += stack[si]->size; si++;
+					if ((*tk)->name == TOKEN_COMMA) {
+						tk++; tokens_skipped++;
+					}
+				}
+				if ((*tk)->name == TOKEN_CLOSE_PAREN) {
+					tk++; tokens_skipped++;
+					state = ENCOUNTERED_ID_EQ_CALL_TYP_ID_PARAM;
+				}
+				continue;
+
+			case ENCOUNTERED_ID_EQ_CALL_TYP_ID_PARAM:
+				if ((*tk)->name == TOKEN_IDENTIFIER
+					&& *((*tk)->lexeme) == '#') {
+					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+				} else {
+					state = ENCOUNTERED_COMMAND;
+				}
+				continue;
+				
+
 			case ENCOUNTERED_ID_EQ_GETELEMENTPTR:
 				if (stack[si] = match_typ(tk)) {
 					tk += stack[si]->size; si++; 
@@ -673,7 +728,7 @@ struct ast_node *match_command(token** tokens) {
 				continue;
 
 			case ENCOUNTERED_ID_EQ_GETELEMENTPTR_TYP_VAL:
-				if (stack[si] = match_val(tk)) {
+				if (stack[si] = (tk)) {
 					tk += stack[si]->size; si++;
 					state = ENCOUNTERED_VAL;
 				}
@@ -763,8 +818,7 @@ struct ast_node *match_command(token** tokens) {
 					if ((*tk)->name == TOKEN_COMMA) {
 						tk++; tokens_skipped++;
 						state = ENCOUNTERED_ID_EQ_LOAD_TYP_TYP_ID;
-
-					}
+											}
 				}
 				continue;
 
@@ -828,7 +882,6 @@ struct ast_node *match_command(token** tokens) {
 				}
 				continue;
 
-
 			case ENCOUNTERED_STORE_TYP_VAL_VAL:
 				if ((*tk)->name == TOKEN_COMMA
 					&& (*(tk+1))->name == TOKEN_ALIGN
@@ -841,7 +894,6 @@ struct ast_node *match_command(token** tokens) {
 					continue;
 				}
 				continue;
-
 
 			case ENCOUNTERED_ID_EQ_LOAD_TYP_PTR_ID_ALIGN_SZ:
 			case ENCOUNTERED_ID_EQ_FBOP_INTEGERTYPE_ID_COMMA_ID:

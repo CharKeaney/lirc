@@ -90,8 +90,6 @@ char* test7 =
   %4 = alloca i8*, align 8\n\
   store i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i32 0, i32 0), i8** %1, align 8\n\
   store i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.1, i32 0, i32 0), i8** %2, align 8\n\
-  ret i32 0\n\
-}";/*
   %5 = load i8*, i8** %1, align 8\n\
   %6 = call i64 @strlen(i8* %5)\n\
   %7 = add i64 %6, 1\n\
@@ -123,6 +121,9 @@ char* test7 =
   %29 = load i8*, i8** %4, align 8\n\
   %30 = call i32 @puts(i8* %29)\n\
   %31 = load i8*, i8** %4, align 8\n\
+  ret i32 0\n\
+}";
+/*
   call void @free(i8* %31)\n\
   ret i32 0\n\
 }";*/
@@ -141,7 +142,7 @@ void main(int argc, char* argv[]) {
 		preprocessor(test7, words);
 		token* tokens[TOKENS_BUFFER_SIZE];
 		tokenizer(words, tokens);
-		//print_token_list(tokens);
+		print_token_list(tokens);
 		ast_node* root = match_module(tokens);
 		print_ast(root);
 	}
