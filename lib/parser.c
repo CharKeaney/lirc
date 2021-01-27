@@ -1,6 +1,6 @@
 #include "parser.h"
 
-#define DEBUG_PARSER true
+#define DEBUG_PARSER false
 
 #define PARSING_STACK_BUFFER (2<<8)
 
@@ -51,6 +51,9 @@ typedef enum  ParsingStates {
 	ENCOUNTERED_BR_TYP_ID_LABEL,
 	ENCOUNTERED_BR_TYP_ID_LABEL_ID,
 	ENCOUNTERED_BR_TYP_ID_LABEL_ID_LABEL,
+	ENCOUNTERED_CALL,
+	ENCOUNTERED_CALL_VOID,
+	ENCOUNTERED_CALL_VOID_ID,
 	ENCOUNTERED_COMMAND,
 	ENCOUNTERED_CONSTANT,
 	ENCOUNTERED_DEFINE,
@@ -343,7 +346,6 @@ struct ast_node* match_constant(token** tokens) {
 	token** tk = tokens;
 
 	while (true) {
-		printf(">%s\n", lookup_token_as_name((*tk)->name));
 
 		switch (state) {
 
@@ -366,11 +368,14 @@ struct ast_node* match_constant(token** tokens) {
 						 if (stack[si] = match_typ(tk)) {
 							 tk += stack[si]->size; si++;
 							 state = ENCOUNTERED_TYP;
-						 }						
+						 }			
+						 continue;
 
 					//case TOKEN_FP:
 					//case TOKEN_OPEN_CURLY_BRACKET:
 						// TODO:
+
+					default: return NULL;
 				}
 				continue;
 				
@@ -443,6 +448,8 @@ struct ast_node* match_val(token** tokens) {
 							tk += stack[si]->size; si++;
 							state = ENCOUNTERED_VAL;
 							continue;
+						} else {
+							return NULL;
 						}
 				}
 				continue;
@@ -467,7 +474,6 @@ struct ast_node* match_val(token** tokens) {
 				continue;
 
 			case ENCOUNTERED_GETELEMENTPTR_TYP:
-				printf("\nENCOUNTERED_GETELEMENTPTR_TYP");
 
 				if (stack[si] = match_typ(tk)) {
 					tk += stack[si]->size; si++;
@@ -479,9 +485,6 @@ struct ast_node* match_val(token** tokens) {
 				continue;
 
 			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR:
-
-				printf("ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR\n");
-				printf("->%s\n", lookup_token_as_name((*tk)->name));
 
 				if ((*tk)->name == TOKEN_IDENTIFIER) {
 					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
@@ -501,7 +504,6 @@ struct ast_node* match_val(token** tokens) {
 				continue;
 
 			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT:
-				printf("ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT\n");
 
 				if (stack[si] = match_constant(tk)) {
 					tk += stack[si]->size; si++;
@@ -516,7 +518,6 @@ struct ast_node* match_val(token** tokens) {
 				continue;
 
 			case ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT_CONSTANT:
-				printf("ENCOUNTERED_GETELEMENTPTR_TYP_TYPPTR_CONSTANT_CONSTANT\n");
 
 				if ((*tk)->name == TOKEN_COMMA) {
 					tk++; tokens_skipped++;
@@ -595,6 +596,10 @@ struct ast_node *match_command(token** tokens) {
 
 			case ENCOUNTERED_:
 				switch ((*tk)->name) {
+					case TOKEN_CALL:
+						stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+						state = ENCOUNTERED_CALL;
+						continue;
 					case TOKEN_IDENTIFIER:
 						stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
 						state = ENCOUNTERED_ID;
@@ -607,6 +612,38 @@ struct ast_node *match_command(token** tokens) {
 						return NULL;
 				}
 				continue;
+
+			case ENCOUNTERED_CALL:
+				if ((*tk)->name == TOKEN_VOID) {
+					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+					state = ENCOUNTERED_CALL_VOID;
+				}
+				continue;
+
+			case ENCOUNTERED_CALL_VOID:
+				if ((*tk)->name == TOKEN_IDENTIFIER) {
+					stack[si++] = create_ast_node(AST_TERMINAL, *tk++);
+					if ((*tk)->name == TOKEN_OPEN_PAREN) {
+						tk++; tokens_skipped++;
+					}
+					state = ENCOUNTERED_CALL_VOID_ID;
+
+				}
+				continue;
+
+			case ENCOUNTERED_CALL_VOID_ID:
+
+				if (stack[si] = match_val(tk)) {
+					tk += stack[si]->size; si++;
+					if ((*tk)->name == TOKEN_COMMA) {
+						tk++; tokens_skipped++;
+					}
+				} else if ((*tk)->name == TOKEN_CLOSE_PAREN) {
+					tk++; tokens_skipped++;
+					state = ENCOUNTERED_COMMAND;
+				}
+				continue;
+
 
 			case ENCOUNTERED_ID:
 				switch ((*tk)->name) {

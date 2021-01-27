@@ -31,6 +31,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_DOUBLE] = {"TOKEN_DOUBLE", "double"},
 	[TOKEN_EQUALS] = {"TOKEN_EQUALS", "="},
 	[TOKEN_FADD] = {"TOKEN_FADD", "fadd"},
+	[TOKEN_FALSE] = {"TOKEN_FALSE", "false"},
 	[TOKEN_FCMP] = {"TOKEN_FCMP", "fcmp"},
 	[TOKEN_FDIV] = {"TOKEN_FDIV", "fdiv"},
 	[TOKEN_FLOAT] = {"TOKEN_FLOAT", "float"},
@@ -76,6 +77,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_SZ] = {"TOKEN_SZ", "1"},
 	[TOKEN_TO] = {"TOKEN_TO", "to"},
 	[TOKEN_TRUNC] = {"TOKEN_TRUNC", "trunc"},
+	[TOKEN_TRUE] = {"TOKEN_TRUE", "true"},
 	[TOKEN_TYP] = {"TOKEN_TYP", "typ"},
 	[TOKEN_UDIV] = {"TOKEN_UDIV", "udiv"},
 	[TOKEN_UNDEF] = {"TOKEN_UNDEF", "undef"},
@@ -388,8 +390,7 @@ struct Token *tokenize(char* input) {
 			case STATE_F: 
 				switch (*ci++) {
 					case 'a': 
-						current_state = match(
-							ci, "dd", STATE_FADD);
+						current_state = STATE_FALSE;
 						continue;
 					case 'c':
 						current_state = match(
@@ -427,7 +428,24 @@ struct Token *tokenize(char* input) {
 						continue;
 				}
 
+			case STATE_FA:
+				switch (*ci) {
+					case 'd':
+						current_state = match(ci, "d", STATE_FADD);
+						continue;
+					case 'l':
+						current_state = match(ci, "se", STATE_FADD);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+				current_state = STATE_UNRECOGNISED;
+				continue;
+
+			case STATE_FALSE: return make_token(TOKEN_FALSE, input, NULL);
 			case STATE_FADD: return make_token(TOKEN_FADD, input, NULL);
+
 			case STATE_FCMP: return make_token(TOKEN_FCMP, input, NULL);
 			case STATE_FDIV: return make_token(TOKEN_FDIV, input, NULL);
 			case STATE_FLOAT: return make_token(TOKEN_FLOAT, input, NULL);
@@ -741,7 +759,30 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_TO: return make_token(TOKEN_TO, input, NULL);
+
+			case STATE_TR:
+				switch(*ci++) {
+
+					case 'u':
+						switch (*ci++) {
+							case 'n':
+								current_state = match(ci, "c", STATE_TRUNC);
+								continue;
+							case 'e':
+								current_state = match(ci, "", STATE_TRUE);
+								continue;
+						}
+
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+
+				
+
 			case STATE_TRUNC: return make_token(TOKEN_TRUNC, input, NULL);
+			case STATE_TRUE: return make_token(TOKEN_TRUNC, input, NULL);
+
 			case STATE_TYP: return make_token(TOKEN_TYP, input, NULL);
 
 			case STATE_U: 

@@ -121,12 +121,9 @@ char* test7 =
   %29 = load i8*, i8** %4, align 8\n\
   %30 = call i32 @puts(i8* %29)\n\
   %31 = load i8*, i8** %4, align 8\n\
-  ret i32 0\n\
-}";
-/*
   call void @free(i8* %31)\n\
   ret i32 0\n\
-}";*/
+}";
 
 void main(int argc, char* argv[]) {
 	/*
