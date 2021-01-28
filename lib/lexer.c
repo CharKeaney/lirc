@@ -47,6 +47,7 @@ char* token_name_lookup[][2] = {
 	[TOKEN_IDENTIFIER] = {"TOKEN_IDENTIFIER", "%identifier"},
 	[TOKEN_INBOUNDS] = {"TOKEN_INBOUNDS", "inbounds"},
 	[TOKEN_INTEGERTYPE] = {"TOKEN_INTEGERTYPE", "i32"},
+	[TOKEN_INTERNAL] = {"TOKEN_INTERNAL", "internal"},
 	[TOKEN_INTTOPTR] = {"TOKEN_INTTOPTR", "inttoptr"},
 	[TOKEN_LITTLEENDIAN] = {"TOKEN_LITTLEENDIAN", "littleendian"},
 	[TOKEN_LABEL] = {"TOKEN_LABEL", "label"},
@@ -530,7 +531,7 @@ struct Token *tokenize(char* input) {
 						current_state = match(ci, "ounds", STATE_INBOUNDS);
 						continue;
 					case 't':
-						current_state = match(ci, "optr", STATE_INTTOPTR);
+						current_state = STATE_INT;
 						continue;
 					default: 
 						current_state = STATE_UNRECOGNISED;
@@ -555,7 +556,21 @@ struct Token *tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_INTTOPTR: return make_token(TOKEN_INTTOPTR, input, NULL);;
+			case STATE_INT:
+				switch (*ci++) {
+					case 'e':
+						current_state = match(ci, "rnal", STATE_INTERNAL);
+						continue;
+					case 'o':
+						current_state = match(ci, "ptr", STATE_INTTOPTR);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+
+			case STATE_INTTOPTR: return make_token(TOKEN_INTTOPTR, input, NULL);
+			case STATE_INTERNAL: return make_token(TOKEN_INTERNAL, input, NULL);
 
 			case STATE_L: 
 				switch (*ci++) {
