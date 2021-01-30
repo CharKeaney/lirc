@@ -1,7 +1,9 @@
 ﻿
 #include "parser.h"
 
-#define RUN_TESTS false
+#define RUN_TESTS true
+#define TESTS_SHOW_LEX_RESULT false
+#define TESTS_SHOW_AST_RESULT true
 
 char* test1 =
 "define i32 @sum(i32 %a, i32 %b) {\n\
@@ -204,11 +206,15 @@ bool test_passed(char* test) {
 	preprocessor(test, words);
 	token* tokens[TOKENS_BUFFER_SIZE];
 	tokenizer(words, tokens);
-	
+
 	int len = 0;
 	for (; tokens[len] != NULL; len++);
 
 	ast_node* root = match_module(tokens);
+
+	if (TESTS_SHOW_LEX_RESULT) { print_token_list(tokens); }
+	if (TESTS_SHOW_AST_RESULT) { print_ast(root); }
+
 	return root->size == len;
 }
 
@@ -229,14 +235,13 @@ char **tests[] = {
 	&test1, &test2, &test3, &test4, &test5, //&test6
 };
 
-
-void main(int argc, char* argv[]) {
-	/*
+/*
 		The job of main here is to act as a pipeline
 		where input comes in as a char[] in source form
 		and output comes out as a token[] in tokenized form.
 	*/
-	{
+void main(int argc, char* argv[]) {
+
 		if (DEBUG_TEST_TOKENIZER) {
 			test_tokenize();
 		}
@@ -246,7 +251,5 @@ void main(int argc, char* argv[]) {
 			run_tests(tests);
 		}
 
-		run_test(test6, 6);
-
-	}
+		//run_test(test6, 6);
 }
