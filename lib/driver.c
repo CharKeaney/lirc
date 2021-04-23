@@ -1,255 +1,339 @@
-﻿
-#include "parser.h"
+﻿#include "driver.h"
 
-#define RUN_TESTS true
-#define TESTS_SHOW_LEX_RESULT false
-#define TESTS_SHOW_AST_RESULT true
+/* Uninitialized pointers to the standard testing suite */
+char *test1, *test2, *test3, *test4, *test5, *test6, *test7, *test8, *test9,
+     *test10, *test11, *test12, *test13, *test14;
 
-char* test1 =
-"define i32 @sum(i32 %a, i32 %b) {\n\
-entry:\n\
-	 %c = fmul i32 %a, %b\n\
-	%3 = load i32 * %a.addr, align 4\n\
-	ret i32 %add\n\
-}";
+/* Container for Standard Testing Suite tests*/
+const char** test_suite[] = {
+	&test1, &test2, &test3, &test4, &test5,
+	&test6, &test7, &test8, &test9, &test10,
+	&test11, &test12, &test13, &test14, NULL
+};
 
-char* test2 =
-"define i32 @sum(i32 %a, i32 %b) #0 {\n\
-entry:\n\
-	%a.addr = alloca i32, align 4\n\
-	%b.addr = alloca i32, align 4\n\
-	store i32 %a, i32* %a.addr, align 4\n\
-	store i32 %b, i32* %b.addr, align 4\n\
-	%0 = load i32 * %a.addr, align 4\n\
-	%1 = load i32 * %b.addr, align 4\n\
-	%add = add nsw i32 %0, %1\n\
-	ret i32 %add\n\
-}";
-
-char* test3 =
-"define i32 @main() #0 {\n\
- %1 = alloca i32, align 4\n\
-  %2 = alloca i32, align 4\n\
-  %3 = alloca i32, align 4\n\
-  %4 = alloca i32, align 4\n\
-  %5 = alloca i32, align 4\n\
-  %6 = alloca i32, align 4\n\
-  store i32 0, i32* %1, align 4\n\
-  store i32 30, i32* %2, align 4\n\
-  store i32 0, i32* %3, align 4\n\
-  store i32 0, i32* %4, align 4\n\
-  store i32 0, i32* %6, align 4\n\
-  br label %7\n\
-\n\
-; <label>:7:  ; preds = %25, %0\n\
-  %8 = load i32, i32* %6, align 4\n\
-  %9 = load i32, i32* %2, align 4\n\
-  %10 = icmp slt i32 %8, %9\n\
-  br i1 %10, label %11, label %28\n\
-\n\
-; <label>:11: ; preds = %7\n\
-  %12 = load i32, i32* %6, align 4\n\
-  %13 = icmp sle i32 %12, 1\n\
-  br i1 %13, label %14, label %16\n\
-\n\
-; <label>:14: ; preds = %11\n\
-  %15 = load i32, i32* %6, align 4\n\
-  store i32 %15, i32* %5, align 4\n\
-  br label %22\n\
-\n\
-; <label>:16:  preds = %11\n\
-  %17 = load i32, i32* %3, align 4\n\
-  %18 = load i32, i32* %4, align 4\n\
-  %19 = add nsw i32 %17, %18\n\
-  store i32 %19, i32* %5, align 4\n\
-  %20 = load i32, i32* %4, align 4\n\
-  store i32 %20, i32* %3, align 4\n\
-  %21 = load i32, i32* %5, align 4\n\
-  store i32 %21, i32* %4, align 4\n\
-  br label %22\n\
-\n\
-; <label>:22: ; preds = %16, %14\n\
-  %23 = load i32, i32* %5, align 4\n\
-  br label %25\n\
-\n\
-; <label>:25: ; preds = %22\n\
-  %26 = load i32, i32* %6, align 4\n\
-  %27 = add nsw i32 %26, 1\n\
-  store i32 %27, i32* %6, align 4\n\
-  br label %7\n\
-\n\
-; <label>:28:; preds = %7\n\
-  ret i32 0\n\
-}"; 
-
-char* test4 =
-"define internal void @__crystal_main(i32 %argc, i8** %argv) {\n\
-alloca:\n\
-  %num = alloca i32\n\
-  br label %entry\n\
-\n\
-entry:                                            ; preds = %alloca\n\
-  store i32 %argc, i32* @ARGC_UNSAFE\n\
-  store i8** %argv, i8*** @ARGV_UNSAFE\n\
-  store i32 0, i32* %num\n\
-  br label %while\n\
-\n\
-while:                                            ; preds = %body, %entry\n\
-  %0 = load i32, i32* %num\n\
-  %1 = icmp slt i32 %0, 5\n\
-  br i1 %1, label %body, label %exit\n\
-\n\
-body:                                             ; preds = %while\n\
-  %2 = load i32, i32* %num\n\
-  %3 = add i32 %2, 1\n\
-  store i32 %3, i32* %num\n\
-  br label %while\n\
-\n\
-exit:                                             ; preds = %while\n\
-  ret void\n\
-}";
-
-char* test5 =
-"define i32 @main() #0 {\n\
-  %1 = alloca i8*, align 8\n\
-  %2 = alloca i8*, align 8\n\
-  %3 = alloca i64, align 8\n\
-  %4 = alloca i8*, align 8\n\
-  store i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i32 0, i32 0), i8** %1, align 8\n\
-  store i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.1, i32 0, i32 0), i8** %2, align 8\n\
-  %5 = load i8*, i8** %1, align 8\n\
-  %6 = call i64 @strlen(i8* %5)\n\
-  %7 = add i64 %6, 1\n\
-  store i64 %7, i64* %3, align 8\n\
-  %8 = load i64, i64* %3, align 8\n\
-  %9 = call i8* @malloc(i64 %8)\n\
-  store i8* %9, i8** %4, align 8\n\
-  %10 = load i8*, i8** %4, align 8\n\
-  %11 = load i8*, i8** %1, align 8\n\
-  %12 = load i64, i64* %3, align 8\n\
-  %13 = load i8*, i8** %4, align 8\n\
-  %14 = call i64 @llvm.objectsize.i64.p0i8(i8* %13, i1 false)\n\
-  %15 = call i8* @__strncat_chk(i8* %10, i8* %11, i64 %12, i64 %14) #4\n\
-  %16 = load i8*, i8** %2, align 8\n\
-  %17 = call i64 @strlen(i8* %16)\n\
-  %18 = load i64, i64* %3, align 8\n\
-  %19 = add i64 %18, %17\n\
-  store i64 %19, i64* %3, align 8\n\
-  %20 = load i8*, i8** %4, align 8\n\
-  %21 = load i64, i64* %3, align 8\n\
-  %22 = call i8* @realloc(i8* %20, i64 %21)\n\
-  store i8* %22, i8** %4, align 8\n\
-  %23 = load i8*, i8** %4, align 8\n\
-  %24 = load i8*, i8** %2, align 8\n\
-  %25 = load i64, i64* %3, align 8\n\
-  %26 = load i8*, i8** %4, align 8\n\
-  %27 = call i64 @llvm.objectsize.i64.p0i8(i8* %26, i1 false)\n\
-  %28 = call i8* @__strncat_chk(i8* %23, i8* %24, i64 %25, i64 %27) #4\n\
-  %29 = load i8*, i8** %4, align 8\n\
-  %30 = call i32 @puts(i8* %29)\n\
-  %31 = load i8*, i8** %4, align 8\n\
-  call void @free(i8* %31)\n\
-  ret i32 0\n\
-}";
-
-test6 = 
-"define internal %String* @__crystal_main(i32 %argc, i8** %argv) {\n\
-alloca:\n\
-  %test = alloca %TestClass*\n\
-  %output = alloca %String*\n\
-  br label %entry\n\
-\n\
-entry:                                            ; preds = %alloca\n\
-  store i32 %argc, i32* @ARGC_UNSAFE\n\
-  store i8** %argv, i8*** @ARGV_UNSAFE\n\
-  %0 = call %TestClass* @\"*TestClass::new<String>:TestClass\"(%String* bitcast ({ i32, i32, i32, [5 x i8] }* @\"\'Demo\'\" to %String*))\n\
-  store %TestClass* %0, %TestClass** %test\n\
-  %1 = load %TestClass*, %TestClass** %test\n\
-  store %String* bitcast ({ i32, i32, i32, [20 x i8] }* @\"\'This is a TestClass...\'\" to %String*), %String** %output\n\
-  ret %String* bitcast ({ i32, i32, i32, [20 x i8] }* @\"\'This is a TestClass...\'\" to %String*)\n\
-}";
-
-/*
-declare i32 @printf(i8*, ...)
-
-; Function Attrs: uwtable
-define i32 @main(i32 %argc, i8** %argv) #0 {
-entry:
-  %0 = call %String* @__crystal_main(i32 %argc, i8** %argv)
-  ret i32 0
+/**
+* Responsible for importing the .ll files within /tests into the char pointers
+* for the Standard Testing Suite tests.
+* 
+* @see load_txt_into_char_ptr
+* @see https://www.rosettacode.org/wiki/Category:Programming_Tasks
+*/
+void import_standard_tests() {
+	test1 = load_test_file_into_char_ptr("./tests/test1.txt");
+	test2 = load_test_file_into_char_ptr("./tests/test2.txt");
+	test3 = load_test_file_into_char_ptr("./tests/test3.txt");
+	test4 = load_test_file_into_char_ptr("./tests/test4.txt");
+	test5 = load_test_file_into_char_ptr("./tests/test5.txt");
+	test6 = load_test_file_into_char_ptr("./tests/test6.txt");
+	test7 = load_test_file_into_char_ptr("./tests/test7.txt");
+	test8 = load_test_file_into_char_ptr("./tests/test8.txt");
+	test9 = load_test_file_into_char_ptr("./tests/test9.txt");
+	test10 = load_test_file_into_char_ptr("./tests/test10.txt");
+	test11 = load_test_file_into_char_ptr("./tests/test11.txt");
+	test12 = load_test_file_into_char_ptr("./tests/test12.txt");
+	test13 = load_test_file_into_char_ptr("./tests/test13.txt");
+	test14 = load_test_file_into_char_ptr("./tests/test14.txt");
 }
 
-; Function Attrs: uwtable
-define internal %TestClass* @"*TestClass::new<String>:TestClass"(%String* %name) #0 {
-alloca:
-  %_ = alloca %TestClass*
-  br label %entry
+/**
+* Responsible for freeing the data associated with the standard testing suite.
+* This is useful as these files could take up many Mb otherwise.
+*/
+void free_standard_tests() {
+	free(test1);
+	free(test2);
+	free(test3);
+	free(test4);
+	free(test5);
+	free(test6);
+	free(test7);
+	free(test8);
+	free(test9);
+	free(test10);
+	free(test11);
+	free(test12);
+	free(test13);
+	free(test14);
+}
 
-entry:                                            ; preds = %alloca
-  %malloccall = tail call i8* @malloc(i32 ptrtoint (%TestClass* getelementptr (%TestClass, %TestClass* null, i32 1) to i32))
-  %0 = bitcast i8* %malloccall to %TestClass*
-  %1 = bitcast %TestClass* %0 to i8*
-  call void @llvm.memset.p0i8.i32(i8* %1, i8 0, i32 ptrtoint (%TestClass* getelementptr (%TestClass, %TestClass* null, i32 1) to i32), i32 4, i1 false)
-  %2 = getelementptr inbounds %TestClass, %TestClass* %0, i32 0, i32 0
-  store i32 6, i32* %2
-  store %TestClass* %0, %TestClass** %_
-  %3 = load %TestClass*, %TestClass** %_
-  %4 = call %String* @"*TestClass#initialize<String>:String"(%TestClass* %3, %String* %name)
-  %5 = load %TestClass*, %TestClass** %_\n\
-  ret %TestClass* %5\n\
-}";*/
+/* Uninitialized Pointers to Rosetta Code tests */
+char *rct1, *rct2, *rct3, *rct4;		
 
+/* Container for Rosetta Code tests*/
+const char** rosetta_code_tests[] = {	
+	&rct1, &rct2, &rct3, &rct4
+};
 
+/**
+* Responsible for importing the .ll files within /tests/RosettaCode into the char pointers
+* for the Rosetta Code tests.
+* 
+* @see load_txt_into_char_ptr
+* @see https://www.rosettacode.org/wiki/Category:Programming_Tasks
+*/
+void import_rosetta_code_tests() {
+	rct1 = load_test_file_into_char_ptr(
+		"./tests/RosettaCode/BurrowsWheelerTransform.ll");
+	rct2 = load_test_file_into_char_ptr(
+		"./tests/RosettaCode/Faulhaberstriangle.ll");
+	rct3 = load_test_file_into_char_ptr(
+		"./tests/RosettaCode/RayCastingAlgorithm.ll");
+	rct4 = load_test_file_into_char_ptr(
+		"./tests/RosettaCode/RayCastingAlgorithm.ll");
+}
 
+/**
+* Responsible for freeing the data associated with the Rosetta Code Tests.
+* This is useful as these files could take up many Mb otherwise.
+*/
+void free_rosetta_code_tests() {
+	free(rct1);
+	free(rct2);
+	free(rct3);
+	free(rct4);
+}
+
+/**
+* Responsible for conducting a test and seeing if it passed. 
+* As opposed to using an OUTPUT vs EXPECTED format, it instead checks that the
+* produced parse tree accounts for all tokens, since we can not quantitatively
+* confirm the usefulness of the parse tree as that is a qualitative metric.
+* 
+* @param test The test that will be conducted.
+* 
+* @see preprocessor
+* @see tokenizer
+* @see parser
+*/
 bool test_passed(char* test) {
-	char* words[PREPROCESSOR_BUFFER_SIZE];
-	preprocessor(test, words);
-	token* tokens[TOKENS_BUFFER_SIZE];
-	tokenizer(words, tokens);
+	/* Starting timer */
+	clock_t start, end;
+	if (PRINT_TEST_TIMES) { start = clock(); }
 
+	/* Preprocessing */
+	if (TESTS_REPORT_STATE) { printf("\tPreprocessing...\n"); }
+	char** words = malloc(sizeof(char *) * PREPROCESSOR_BUFFER_SIZE);
+	preprocessor(test, words);
+
+	/* Tokenizing */
+	if (TESTS_REPORT_STATE) { printf("\tTokenizing...\n"); }
+	token** tokens = malloc(sizeof(token *) * TOKENS_BUFFER_SIZE);
+	tokenizer(words, tokens);
+	if (TESTS_SHOW_LEX_RESULT) { print_token_list(tokens); }
+
+	/* Parsing */
+	if (TESTS_REPORT_STATE) { printf("\tParsing...\n"); }
+	ast_node* root = parse(tokens);
+	if (PRINT_TEST_TIMES) { end = clock(); }
+	if (TESTS_SHOW_AST_RESULT) {
+		print_ast(root);
+	}
+	if (TESTS_SAVE_AST_RESULT) {
+		FILE* fp = NULL;
+		fopen_s(&fp, "log.txt", "w");
+		fprint_ast(root, fp);
+		fclose(fp);
+	}
+
+	/* Validating */
+	int size = root->size;
 	int len = 0;
 	for (; tokens[len] != NULL; len++);
+	bool large_as_expected = size == len;
+	bool passed = large_as_expected
+		&& root != NULL
+		&& root->contains_error == false;
+	if (!passed && TEST_ENABLE_ERROR_MSG) {
+		/* We will colour this message differently to make it stand out. */
+		if (DEBUG_SUPPORT_COLOUR) { printf(ERROR_COLOUR); }
+		/* Now we will print the error message */
+		/* First the message beginning */
+		char* msgformat = "Parsing Error : %s\n";
+		error_code err_code = root->error_code;
+		char* msgbody = error_msgs[err_code];
+		printf(msgformat, msgbody);
+		/* Then print the input line */
+		/* We need to find the start of the error. root.contains_error tells
+		   us this but it will only be present if proper error recovery.
+		   If it is not present we use the less accurate size attribute. */
+		token** error_token = (root->contains_error)
+			? root->error_token : tokens + size;
 
-	ast_node* root = match_module(tokens);
+		int error_char_index = 0; /* Remembering where the error character is */
+		for (token** tk = error_token - 10; 
+			tk < error_token;
+			tk++) {
 
-	if (TESTS_SHOW_LEX_RESULT) { print_token_list(tokens); }
-	if (TESTS_SHOW_AST_RESULT) { print_ast(root); }
+			if (tk >= tokens && tk < tokens + len) { 
+				printf("%s ", (*tk)->lexeme); 
+				error_char_index += strlen((*tk)->lexeme) + 1;
+			}
+		}
+		for (token** tk = error_token; tk < error_token + 10; tk++) {
+			if (tk >= tokens && tk < tokens + len) { 
+				printf("%s ", (*tk)->lexeme); 
+			}
+		}
+		/* Then print a caret (^) pointing to the error. */
+		printf("\n%*s^\n", error_char_index, " ");
+		/* We will swap the colour back to the default now. . */
+		if (DEBUG_SUPPORT_COLOUR) { printf(DEFAULT_COLOUR); }
+	}
 
-	return root->size == len;
+	/* Managing memory */
+	if (TESTS_REPORT_STATE) { printf("\tManaging Memory...\n"); }
+	/* 1. Freeing the parse tree */
+	free_tree(root);
+	root = NULL;
+	/* 2. Freeing the tokens */
+	for (token** tk = tokens; *tk != NULL; tk++) {
+		free(*tk);
+		*tk = NULL;
+	}
+	free(tokens);
+	/* Freeing the lexemes */
+	for (int i = 0; words[i] != NULL; i++) {
+		if (TESTS_SHOW_MEMORY_MANAGEMENT_DEBUG) {
+			char* prefix = "Tester (memory management) : ";
+			printf(
+				"%s %d. Attempted to free %s (%p).\n", 
+				prefix, i, words[i], words[i]);
+		}
+		free(words[i]);
+		words[i] = NULL;
+	}
+	free(words);
+
+	/* Printing the time taken to conduct the test */
+	if (PRINT_TEST_TIMES) {
+		double cpu_cycles_used = (double) end - start;
+		double cpu_time_used = (double) cpu_cycles_used / CLOCKS_PER_SEC;
+		printf("Parsing completed in %.2fs (%.10fs per token).",
+			cpu_time_used, cpu_time_used / len);
+	}
+	return passed; /* Return results of the test */
 }
 
-void run_test(char* test, int test_num) {
-	printf("\t[%c] Test %d %s.\n",
-		(test_passed(test)) ? 'Y' : 'N',
-		test_num,
-		(test_passed(test)) ? "Passed" : "Failed");
+/**
+* Responsible for conducting a test and seeing if it passed. Acts as a wrapper
+* for test_passed. If the proper debug options are enabled (PRINT_TEST_RESULT),
+* this function will also print out the results in an appropriately formatted 
+* manner.
+* 
+* @param test The test that will be conducted.
+* @param test_num The number to associate with the test. I.e. test number 1.
+*
+* @see test_passed
+* @see tokenizer
+* @see parser
+*/
+bool run_test(char* test, int test_num) {
+	/* Checking that the test is successful */
+	bool test_was_successful = test_passed(test);
+	/* Checking what symbol to use based on compatibility */
+	char* success_symbol = (DEBUG_SUPPORT_COLOUR) ? 
+		SUCCESS_COLOUR "Y" DEFAULT_COLOUR : "Y";
+	char* failure_symbol = (DEBUG_SUPPORT_COLOUR) ?
+		FAILURE_COLOUR "N" DEFAULT_COLOUR : "N";
+	/* Printing the test results */
+	if (PRINT_TEST_RESULTS) {
+		printf("\t[%s] Test %d %s.\n",
+			(test_was_successful) ? 
+				success_symbol : failure_symbol,
+			test_num,
+			(test_was_successful) ? "Passed" : "Failed");
+	}
+	return test_was_successful;
 }
 
-void run_tests(char** tests[]) {
-	for (int i = 0; tests[i] != NULL; i++) {
-		run_test(*tests[i], i + 1);
+/**
+* Responsible for conducting all the tests in a test suite and seeing if they 
+* pass. Will print results if appropriate debug options are enabled.
+* Will print times if appropriate debug options are enabled.
+* 
+* @param test_suite The container which contains all the tests to be conducted.
+* 
+* @see run_test
+* @see PRINT_TEST_TIMES
+*/
+void run_tests(char** test_suite[]) {
+	time_t start, end;
+	int tests_ran = 0, tests_passed = 0;
+	if (PRINT_TEST_TIMES) { start = clock(); }
+	for (int i = 0; test_suite[i] != NULL; i++) {
+		tests_passed += run_test(*test_suite[i], i + 1);		
+		tests_ran++;
+	}
+	if (PRINT_TEST_TIMES) {
+		end = clock();
+		double cpu_clocks_used = (double)end - start;
+		double cpu_time_used = (double)cpu_clocks_used / CLOCKS_PER_SEC;
+		printf("All tests completed in %.2fs.\n", cpu_time_used);
+	}
+	if (PRINT_TEST_REPORT) {
+		double percent_passed = (double) ( tests_passed / tests_ran) * 100;
+		printf("%.2f%% of tests passed. (%d/%d)\n",
+			percent_passed,
+			tests_passed,
+			tests_ran);
 	}
 }
 
-char **tests[] = {
-	&test1, &test2, &test3, &test4, &test5, //&test6
-};
+/**
+* Responsible for loading a test file into a character pointer and returning 
+* said pointer.
+* 
+* @param filename The full file name for the test file relative to this file. 
+*/
+char* load_test_file_into_char_ptr(char* filename) {
+	FILE* fp = NULL;
+	fopen_s(&fp, filename, "rb");
+	if (fp == NULL) { printf("could not read test file."); return NULL; }
 
-/*
-		The job of main here is to act as a pipeline
-		where input comes in as a char[] in source form
-		and output comes out as a token[] in tokenized form.
-	*/
-void main(int argc, char* argv[]) {
+	fseek(fp, 0L, SEEK_END);
+	long long int len = ftell(fp);
+	rewind(fp);
 
-		if (DEBUG_TEST_TOKENIZER) {
-			test_tokenize();
-		}
+	char* buffer = malloc(sizeof(char) * len + 1);
+	if (buffer == NULL) {
+		printf(
+			"Fatal Error : Failed to allocate memory to store input from %s",
+			filename);
+		return NULL;
+	}
+	fread(buffer, sizeof(char), len + 1, fp);
+	buffer[len] = NULL;
+	return buffer;
+}
 
-		if (RUN_TESTS) {
-			printf("Performing tests...\n");
-			run_tests(tests);
-		}
+/**
+* The job of main here is to act as a pipeline where input comes in as a char[]
+* in source form and output comes out as a token[] in tokenized form.
+*/
+void main(int argc, char *argv[]) {
+	
+	if (DEBUG_TEST_TOKENIZER) {
+		test_tokenize();
+	}
 
-		//run_test(test6, 6);
+	if (DEBUG_RUN_TESTS) {
+		/* Loading the test data which would otherwise be unnecessary. */
+		import_standard_tests();
+		/* Performing tests */
+		printf("Performing tests...\n");
+		clock_t start, end; 
+		run_tests(test_suite);
+		/* Freeing the test data which should now be unnecessary. */
+		free_standard_tests();
+	}
+
+	if (DEBUG_RUN_ROSSETTA_CODE_TESTS) {
+		/* Loading Rosetta Code test data which would otherwise be unnecessary */
+		import_rosetta_code_tests();
+		/* Performing Rosetta Code tests */
+		printf("Performing Rosetta Code tests...\n");
+		run_tests(rosetta_code_tests);
+		/* Freeing the Rosetta Code test data which should now be unnecessary */
+		free_rosetta_code_tests();
+	}
 }
