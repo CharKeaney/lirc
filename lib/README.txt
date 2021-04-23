@@ -75,8 +75,9 @@ _______________________________________________________________________________
 			◇ add an example of the tokens lexeme to the lookup table
 			◇ define one or more states for the token and its mutual 
 			   substring in lexer. 
-			   (i.e. fptoui and fptosi would need a fpto state since you can not 
-			   determistically say which is which without lookahead past 'o'). 
+			   (i.e. fptoui and fptosi would need a fpto state since you can 
+			   not determistically say which is which without lookahead past 
+			   'o'). 
 			◇ add case statements to lexer.c for each state and 
 			◇ add a transition function for each state to lexer.c
 
@@ -137,9 +138,10 @@ _______________________________________________________________________________
 
 	◆ Maintenance (Final stage)
 
-		◇ More properly insure that code produced is safe for safety critical tasks.
-		   This includes adding warnings for undefined behaviour and indeed marking 
-		   behaviour as undefined in the first place for certain constructs/data types.
+		◇ More properly insure that code produced is safe for safety
+		   critical tasks. This includes adding warnings for undefined 
+		   behaviour and indeed marking behaviour as undefined in the 
+		   first place for certain constructs/data types.
 
 		◇ Add support for more front-ends and back ends.
 	
