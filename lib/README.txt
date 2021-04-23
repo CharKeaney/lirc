@@ -1,11 +1,11 @@
 ﻿_______________________________________________________________________________
 
-							██╗     ██╗██████╗  ██████╗
-							██║     ██║██╔══██╗██╔════╝
-							██║     ██║██████╔╝██║     
-							██║     ██║██╔══██╗██║     
-							███████╗██║██║  ██║╚██████╗
-							╚══════╝╚═╝╚═╝  ╚═╝ ╚═════╝
+			██╗     ██╗██████╗  ██████╗
+			██║     ██║██╔══██╗██╔════╝
+			██║     ██║██████╔╝██║     
+			██║     ██║██╔══██╗██║     
+			███████╗██║██║  ██║╚██████╗
+			╚══════╝╚═╝╚═╝  ╚═╝ ╚═════╝
 _______________________________________________________________________________
 
 ◆ Project Goal
@@ -75,9 +75,9 @@ _______________________________________________________________________________
 			◇ add an example of the tokens lexeme to the lookup table
 			◇ define one or more states for the token and its mutual 
 			   substring in lexer. 
-			   (i.e. fptoui and fptosi would need a fpto state since you can 
-			   not determistically say which is which without lookahead past 
-			   'o'). 
+			   (i.e. fptoui and fptosi would need a fpto state since 
+			   you can not determistically say which is which without 
+			   lookahead past 'o'). 
 			◇ add case statements to lexer.c for each state and 
 			◇ add a transition function for each state to lexer.c
 
@@ -87,16 +87,18 @@ _______________________________________________________________________________
 	   to the lookup table in lexer.h alongside an example lexeme for testing.
 
 	◇ The start of the input isn't being parsed? 
-	  The parser is not yet suited for parsing declarations. This will soon be 
-	  added and is one of the first places for expansion. Skip to the first 
-	  function definition to resolve this for the time being. For what it is 
-	  worth, a decent amount of that information (i.e. the OS of the target) 
-	  is not relevant for code generation anyways.
+	  The parser is not yet suited for parsing declarations. This will 
+	  soon be added and is one of the first places for expansion. Skip 
+	  to the first function definition to resolve this for the time being.
+	  For what it is worth, a decent amount of that information 
+	  (i.e. the OS of the target) is not relevant for code generation 
+	  anyways.
 
 	◇ The very end of the input isn't being parsed? 
-	   The parser is not yet suited for function attributes. This will soon be 
-	   added and is one of the first places for expansion. Truncate the end
-	   in order to resolve this for the time being.
+	   The parser is not yet suited for function attributes. 
+	   This will soon be added and is one of the first places for 
+	   expansion. Truncate the endin order to resolve this for the time 
+	   being.
 
 	◇ The error message is not properly showing? 
 	   This means for some reason the error has not been assigned a proper
@@ -123,14 +125,14 @@ _______________________________________________________________________________
 	◆ Make code generation more flexible and language independent 
 	  (no need to add languages other than C yet though)
 
-		◇ Work out a scheme for how language dependent information can be 
-		   represented, stored, and later used by the code generator.
-		   Perhaps a DSL could be useful here as opposed to a purely
-		   data oriented system. I.e. each module could be a 'program'
-		   that the code generator runs.
+		◇ Work out a scheme for how language dependent information 
+		  can be represented, stored, and later used by the code 
+		  generator. Perhaps a DSL could be useful here as opposed 
+		  to a purely data oriented system. I.e. each module could 
+		  be a 'program' that the code generator runs.
 
-		◇ Make a schema for C and have the newly language independent code 
-		   generator use that.
+		◇ Make a schema for C and have the newly language 
+		  independent code generator use that.
 
 	◇ Conform to a formal coding standard (MISRA C looks promising)
 
@@ -150,8 +152,9 @@ _______________________________________________________________________________
 
 ◆ Explanation of files
 
-	◇ README.txt - The file you are reading, dedicated to documenting the 
-					programs purpose, basic structure, and future direction.
+	◇ README.txt - The file you are reading, dedicated to documenting 
+			the programs purpose, basic structure, and future 
+			direction.
 	
 	◇ tests.dir - Directory containing test cases used by the driver
 	
@@ -160,24 +163,26 @@ _______________________________________________________________________________
 	◇ lexer.h - Header containing declarations related to lexer
 	
 	◇ lexer.c - Responsible for processing given input string into tokens. 
-				 Since it has no main it must be driven by the driver.
+		     Since it has no main it must be driven by the driver.
 	
 	◇ parser.h - Header containing declarations related to parser
 	
 	◇ parser.c - Responsible for processing given token string into an 
 				  Abstract Syntax Tree as defined by parser.h
-				  Since it has no main it must be driven by the driver.
+				  Since it has no main it must be driven by 
+				  the driver.
 	
 	◇ driver.c - Responsible for stringing together the parser and lexer
 				  in order to process the test cases. 
-				  Capable of string constants processing files but does 
-				  not yet parse directly from command line arguments. 
+				  Capable of string constants processing files 
+				  but does not yet parse directly from command 
+				  line arguments. 
 	
 	◇ codegen.h - Header containing final code generation information for 
 				   codegen.c. Currently Unused.
 
-	◇ codegen.c - Responsible for language independent code generation through
-				   the use of language specific modules.
+	◇ codegen.c - Responsible for language independent code generation 
+		       through the use of language specific modules.
 
 _______________________________________________________________________________
 
