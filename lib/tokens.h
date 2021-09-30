@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdlib.h>
+
 /* A token_name is a name of a token.
 *  The tokens name is not neccessarily the same as its lexeme.
 *  ERROR_TOKEN signals eroneous input.
@@ -11,8 +13,11 @@ typedef enum {
 	TOKEN_ALIGN,
 	TOKEN_ALLOCA,
 	TOKEN_AND,
+	TOKEN_ANY,
+	TOKEN_ARGMEMONLY,
 	TOKEN_ASHR,
 	TOKEN_ASM,
+	TOKEN_ATTRIBUTES,
 	TOKEN_BIGENDIAN,
 	TOKEN_BITCAST,
 	TOKEN_BR,
@@ -23,8 +28,11 @@ typedef enum {
 	TOKEN_CLOSE_PAREN,
 	TOKEN_CLEANUP,
 	TOKEN_CMPXCHG,
+	TOKEN_CONSTANT,
 	TOKEN_COMMA,
 	TOKEN_COMDAT,
+	TOKEN_CSTRING,
+	TOKEN_DATALAYOUT,
 	TOKEN_DECLARE,
 	TOKEN_DEFINE,
 	TOKEN_DOTDOTDOT,
@@ -32,9 +40,13 @@ typedef enum {
 	TOKEN_DLLIMPORT,
 	TOKEN_DSO_LOCAL,
 	TOKEN_EQUALS,
+	TOKEN_EOF, /* This is a special token only present at the end of a program.
+			      its main purpose is to stop the program from crashing by looking
+				  past the end of the input for the token it expects. */
 	TOKEN_EQ,
 	TOKEN_EXTRACTVALUE,
 	TOKEN_EXACT,
+	TOKEN_EXCLAMATION_MARK,
 	TOKEN_FADD,
 	TOKEN_FALSE,
 	TOKEN_FCMP,
@@ -65,17 +77,23 @@ typedef enum {
 	TOKEN_LITTLEENDIAN,
 	TOKEN_LINKONCE_ODR,
 	TOKEN_LABEL,
+	TOKEN_LLVM_IDENT,
+	TOKEN_LLVM_MODULE_FLAGS,
 	TOKEN_LOAD,
 	TOKEN_LSHR,
 	TOKEN_MALLOC,
 	TOKEN_MUL,
 	TOKEN_NE,
 	TOKEN_NOALIAS,
+	TOKEN_NOBUILTIN,
 	TOKEN_NOCAPTURE,
+	TOKEN_NOUNWIND,
+	TOKEN_NOINLINE,
 	TOKEN_NSW,
 	TOKEN_NUW,
 	TOKEN_NULL,
 	TOKEN_OEQ,
+	TOKEN_OPAQUE,
 	TOKEN_OPEN_ANGLE_BRACKET,
 	TOKEN_OPEN_BRACKET,
 	TOKEN_OPEN_CURLY_BRACKET,
@@ -84,11 +102,14 @@ typedef enum {
 	TOKEN_OGT,
 	TOKEN_OLE,
 	TOKEN_OLT,
+	TOKEN_OPTNONE,
 	TOKEN_OR,
 	TOKEN_PERSONALITY,
 	TOKEN_PHI,
+	TOKEN_PRIVATE,
 	TOKEN_PTR,
 	TOKEN_PTRTOINT,
+	TOKEN_READNONE,
 	TOKEN_READONLY,
 	TOKEN_RET,
 	TOKEN_SDIV,
@@ -102,7 +123,10 @@ typedef enum {
 	TOKEN_SITOFP,
 	TOKEN_SLE,
 	TOKEN_SLT,
+	TOKEN_SOURCE_FILENAME,
+	TOKEN_SPECULATABLE,
 	TOKEN_SREM,
+	TOKEN_SRET,
 	TOKEN_STACK,
 	TOKEN_STRING,
 	TOKEN_STORE,
@@ -110,31 +134,210 @@ typedef enum {
 	TOKEN_SWITCH,
 	TOKEN_SZ,
 	TOKEN_TAIL,
+	TOKEN_TARGET,
 	TOKEN_TO,
+	TOKEN_TRIPLE,
 	TOKEN_TRUNC,
 	TOKEN_TRUE,
-	TOKEN_TYP,
+	TOKEN_TYPE,
 	TOKEN_UDIV,
 	TOKEN_UGT,
 	TOKEN_UGE,
 	TOKEN_UITOFP,
 	TOKEN_ULE,
 	TOKEN_ULT,
+	TOKEN_UNNAMED_ADDR,
 	TOKEN_UNDEF,
 	TOKEN_UNE,
 	TOKEN_UNREACHABLE,
 	TOKEN_UNWIND,
 	TOKEN_UREM,
+	TOKEN_UWTABLE,
 	TOKEN_VAL,
 	TOKEN_VOID,
 	TOKEN_VOLATILE,
+	TOKEN_WILLRETURN,
 	TOKEN_WRITEONLY,
 	TOKEN_X,
 	TOKEN_XOR,
 	TOKEN_ZEROINITIALIZER,
+	TOKEN_ZEROEXT,
 	TOKEN_ZEXT,
 } token_name;
 
+
+/*
+* token_name_lookup is used to associate a tokens internal name
+* with a human-readable name. Used for human interfacing and also
+* for testing purposes. Lexeme is the appropriate lexeme, or
+* an example lexeme if more than one exists.
+*/
+static char* token_name_lookup[][2] = {
+	[ERROR_TOKEN] = {"TOKEN_ERROR", ""},
+	[TOKEN_ADD] = {"TOKEN_ADD", "add"},
+	[TOKEN_ASM] = {"TOKEN_ASM", "asm"},
+	[TOKEN_AGGR] = {"TOKEN_AGGR", "aggr"},
+	[TOKEN_ALIGN] = {"TOKEN_ALIGN", "align"},
+	[TOKEN_ALLOCA] = {"TOKEN_ALLOCA", "alloca"},
+	[TOKEN_AND] = {"TOKEN_AND", "and"},
+	[TOKEN_ANY] = {"TOKEN_ANY", "any"},
+	[TOKEN_ARGMEMONLY] = {"TOKEN_ARGMEMONLY", "argmemonly"},
+	[TOKEN_ASHR] = {"TOKEN_ASHR", "ashr"},
+	[TOKEN_ATTRIBUTES] = {"TOKEN_ATTRIBUTES", "attributes"},
+	[TOKEN_BIGENDIAN] = {"TOKEN_BIGENDIAN", "bigendian"},
+	[TOKEN_BITCAST] = {"TOKEN_BITCAST", "bitcast"},
+	[TOKEN_BLOCKLABEL] = {"TOKEN_BLOCKLABEL", "entry:"},
+	[TOKEN_BR] = {"TOKEN_BR", "br"},
+	[TOKEN_CALL] = {"TOKEN_CALL", "call"},
+	[TOKEN_CLEANUP] = {"TOKEN_CLEANUP", "cleanup"},
+	[TOKEN_CLOSE_ANGLE_BRACKET] = {"TOKEN_CLOSE_ANGLE_BRACKET", ">"},
+	[TOKEN_CLOSE_BRACKET] = {"TOKEN_CLOSE_BRACKET", "]"},
+	[TOKEN_CLOSE_CURLY_BRACKET] = {"TOKEN_CLOSE_CURLY_BRACKET", "}"},
+	[TOKEN_CLOSE_PAREN] = {"TOKEN_CLOSE_PAREN", "]"},
+	[TOKEN_CMPXCHG] = {"TOKEN_CMPXCHG", "cmpxchg"},
+	[TOKEN_COMMA] = {"TOKEN_COMMA", ","},
+	[TOKEN_COMDAT] = {"TOKEN_COMDAT", "comdat"},
+	[TOKEN_CONSTANT] = {"TOKEN_CONSTANT", "constant"},
+	[TOKEN_DATALAYOUT] = {"TOKEN_DATALAYOUT", "datalayout"},
+	[TOKEN_DECLARE] = {"TOKEN_DECLARE", "declare"},
+	[TOKEN_DEFINE] = {"TOKEN_DEFINE", "define"},
+	[TOKEN_DOTDOTDOT] = {"TOKEN_DOTDOTDOT", "..."},
+	[TOKEN_DOUBLE] = {"TOKEN_DOUBLE", "double"},
+	[TOKEN_DSO_LOCAL] = {"TOKEN_DSO_LOCAL", "dso_local"},
+	[TOKEN_DLLIMPORT] = {"TOKEN_DLL_IMPORT", "dllimport"},
+	[TOKEN_EQUALS] = {"TOKEN_EQUALS", "="},
+	[TOKEN_EQ] = {"TOKEN_EQ", "eq"},
+	[TOKEN_EXACT] = {"TOKEN_EXACT", "exact"},
+	[TOKEN_EXCLAMATION_MARK] = {"TOKEN_EXCLAMATION_MARK", "!"},
+	[TOKEN_EXTRACTVALUE] = {"TOKEN_EXTRACTVALUE", "extractvalue"},
+	[TOKEN_FADD] = {"TOKEN_FADD", "fadd"},
+	[TOKEN_FALSE] = {"TOKEN_FALSE", "false"},
+	[TOKEN_FCMP] = {"TOKEN_FCMP", "fcmp"},
+	[TOKEN_FDIV] = {"TOKEN_FDIV", "fdiv"},
+	[TOKEN_FENCE] = {"TOKEN_FENCE", "fence"},
+	[TOKEN_FLOAT] = {"TOKEN_FLOAT", "float"},
+	[TOKEN_FLOAT_LITERAL] = {"TOKEN_FLOAT_LITERAL", "1.1e+1"},
+	[TOKEN_FMUL] = {"TOKEN_FMUL", "fmul"},
+	[TOKEN_FPEXT] = {"TOKEN_FPEXT", "fpext"},
+	[TOKEN_FPTOUI] = {"TOKEN_FPTOUI", "fptoui"},
+	[TOKEN_FPTOSI] = {"TOKEN_FPTOSI", "fptosi"},
+	[TOKEN_FREE] = {"TOKEN_FREE", "free"},
+	[TOKEN_FREM] = {"TOKEN_FREM", "frem"},
+	[TOKEN_FNEG] = {"TOKEN_FNEG", "fneg"},
+	[TOKEN_FSUB] = {"TOKEN_FSUB", "fsub"},
+	[TOKEN_GETELEMENTPTR] = {"TOKEN_GETELEMENTPTR", "getelementptr"},
+	[TOKEN_GLOBAL] = {"TOKEN_GLOBAL", "global"},
+	[TOKEN_ICMP] = {"TOKEN_ICMP", "icmp"},
+	[TOKEN_IDENTIFIER] = {"TOKEN_IDENTIFIER", "%identifier"},
+	[TOKEN_IMMARG] = {"TOKEN_IMMARGS", "immargs"},
+	[TOKEN_INBOUNDS] = {"TOKEN_INBOUNDS", "inbounds"},
+	[TOKEN_INTEGERTYPE] = {"TOKEN_INTEGERTYPE", "i32"},
+	[TOKEN_INTERNAL] = {"TOKEN_INTERNAL", "internal"},
+	[TOKEN_INTTOPTR] = {"TOKEN_INTTOPTR", "inttoptr"},
+	[TOKEN_INVOKE] = {"TOKEN_INVOKE", "invoke"},
+	[TOKEN_LITTLEENDIAN] = {"TOKEN_LITTLEENDIAN", "littleendian"},
+	[TOKEN_LINKONCE_ODR] = {"TOKEN_LINKONCE", "linkonce_odr"},
+	[TOKEN_LABEL] = {"TOKEN_LABEL", "label"},
+	[TOKEN_LANDINGPAD] = {"TOKEN_LANDINGPAD", "Landingpad"},
+	[TOKEN_LLVM_IDENT] = {"TOKEN_LLVM_IDENT", "llvm.ident"},
+	[TOKEN_LLVM_MODULE_FLAGS] = {"TOKEN_LLVM_MODULE_FLAGS", "llvm.module.flags"},
+	[TOKEN_LOAD] = {"TOKEN_LOAD", "load"},
+	[TOKEN_LSHR] = {"TOKEN_LSHR", "lshr"},
+	[TOKEN_MALLOC] = {"TOKEN_MALLOC", "malloc"},
+	[TOKEN_MUL] = {"TOKEN_MUL", "mul"},
+	[TOKEN_NE] = {"TOKEN_NE", "ne"},
+	[TOKEN_NOALIAS] = {"TOKEN_NOALIAS", "noalias"},
+	[TOKEN_NOBUILTIN] = {"TOKEN_NOBUILTIN", "nobuiltin"},
+	[TOKEN_NOCAPTURE] = {"TOKEN_NOCAPTURE", "nocapture"},
+	[TOKEN_NOINLINE] = {"TOKEN_NOINLINE", "noinline"},
+	[TOKEN_NOUNWIND] = {"TOKEN_NOUNWIND", "nounwind"},
+	[TOKEN_NULL] = {"TOKEN_NULL", "null"},
+	[TOKEN_NUW] = {"TOKEN_NUW", "nuw"},
+	[TOKEN_NSW] = {"TOKEN_NSW", "nsw"},
+	[TOKEN_OEQ] = {"TOKEN_OEQ", "oeq"},
+	[TOKEN_OPEN_CURLY_BRACKET] = {"TOKEN_OPEN_CURLY_BRACKET", "{"},
+	[TOKEN_OPEN_ANGLE_BRACKET] = {"TOKEN_OPEN_ANGLE_BRACKET", "<"},
+	[TOKEN_OPEN_BRACKET] = {"TOKEN_OPEN_BRACKET", "["},
+	[TOKEN_OPEN_PAREN] = {"TOKEN_OPEN_PAREN", "("},
+	[TOKEN_OPTNONE] = {"TOKEN_OPTNONE", "optnone"},
+	[TOKEN_OR] = {"TOKEN_OR", "or"},
+	[TOKEN_OGE] = {"TOKEN_OGE", "oge"},
+	[TOKEN_OGT] = {"TOKEN_OGT", "ogt"},
+	[TOKEN_OLE] = {"TOKEN_OLE", "ole"},
+	[TOKEN_OLT] = {"TOKEN_OLT", "olt"},
+	[TOKEN_OPAQUE] = {"TOKEN_OPAQUE", "opaque"},
+	[TOKEN_PERSONALITY] = {"TOKEN_PERSONALITY", "personality"},
+	[TOKEN_PHI] = {"TOKEN_PHI", "phi"},
+	[TOKEN_PRIVATE] = {"TOKEN_PRIVATE", "private"},
+	[TOKEN_PTR] = {"TOKEN_PTR", "*"},
+	[TOKEN_PTRTOINT] = {"TOKEN_PTRTOINT", "ptrtoint"},
+	[TOKEN_READNONE] = {"TOKEN_READNONE", "readnone"},
+	[TOKEN_READONLY] = {"TOKEN_READONLY", "readonly"},
+	[TOKEN_RET] = {"TOKEN_RET", "ret"},
+	[TOKEN_SDIV] = {"TOKEN_SDIV", "sdiv"},
+	[TOKEN_SELECT] = {"TOKEN_SELECT", "select"},
+	[TOKEN_SEXT] = {"TOKEN_SEXT", "sext"},
+	[TOKEN_STRING] = {"TOKEN_STRING", "\"string\""},
+	[TOKEN_SEQ_CST] = {"TOKEN_SEQ_CST", "seq_cst"},
+	[TOKEN_SITOFP] = {"TOKEN_SITOFP", "sitofp"},
+	[TOKEN_SGT] = {"TOKEN_SGT", "sgt"},
+	[TOKEN_SGE] = {"TOKEN_SGE", "sge"},
+	[TOKEN_SLE] = {"TOKEN_SLE", "sle"},
+	[TOKEN_SLT] = {"TOKEN_SLT", "slt"},
+	[TOKEN_SOURCE_FILENAME] = {"TOKEN_SOURCE_FILENAME", "source_filename"},
+	[TOKEN_SHL] = {"TOKEN_SHL", "shl"},
+	[TOKEN_STRING] = {"TOKEN_STRING", "\"string\""},
+	[TOKEN_SREM] = {"TOKEN_SREM", "srem"},
+	[TOKEN_SRET] = { "TOKEN_SRET", "sret" },
+	[TOKEN_STACK] = {"TOKEN_STACK", "stack"},
+	[TOKEN_STORE] = {"TOKEN_STORE", "store"},
+	[TOKEN_SUB] = {"TOKEN_SUB", "sub"},
+	[TOKEN_SWITCH] = {"TOKEN_SWITCH", "switch"},
+	[TOKEN_SYNCSCOPE] = {"TOKEN_SYNCSCOPE", "syncscope"},
+	[TOKEN_SZ] = {"TOKEN_SZ", "1"},
+	[TOKEN_TAIL] = {"TOKEN_TAIL", "tail"},
+	[TOKEN_TARGET] = {"TOKEN_TARGET", "target"},
+	[TOKEN_TRIPLE] = {"TOKEN_TRIPLE", "triple"},
+	[TOKEN_TO] = {"TOKEN_TO", "to"},
+	[TOKEN_TRUNC] = {"TOKEN_TRUNC", "trunc"},
+	[TOKEN_TRUE] = {"TOKEN_TRUE", "true"},
+	[TOKEN_TYPE] = {"TOKEN_TYPE", "type"},
+	[TOKEN_UDIV] = {"TOKEN_UDIV", "udiv"},
+	[TOKEN_UITOFP] = {"TOKEN_UITOFP", "uitofp"},
+	[TOKEN_UGE] = {"TOKEN_UGE", "uge"},
+	[TOKEN_UGT] = {"TOKEN_UGT", "ugt"},
+	[TOKEN_ULE] = {"TOKEN_ULE", "ule"},
+	[TOKEN_UNE] = {"TOKEN_UNE", "une"},
+	[TOKEN_ULT] = {"TOKEN_ULT", "ult"},
+	[TOKEN_UNDEF] = {"TOKEN_UNDEF", "undef"},
+	[TOKEN_UNNAMED_ADDR] = {"TOKEN_UNNAMED_ADDR", "unnamed_addr"},
+	[TOKEN_UNWIND] = {"TOKEN_UNWIND", "unwind"},
+	[TOKEN_UNREACHABLE] = {"TOKEN_UNREACHABLE", "unreachable"},
+	[TOKEN_UREM] = {"TOKEN_UREM", "urem"},
+	[TOKEN_UWTABLE] = {"TOKEN_UWTABLE", "uwtable"},
+	[TOKEN_VAL] = {"TOKEN_VAL", "val"},
+	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
+	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
+	[TOKEN_VOLATILE] = {"TOKEN_VOLATILE", "volatile"},
+	[TOKEN_X] = {"TOKEN_X", "x"},
+	[TOKEN_XOR] = {"TOKEN_XOR", "xor"},
+	[TOKEN_WRITEONLY] = {"TOKEN_WRITEONLY", "writeonly"},
+	[TOKEN_ZEROINITIALIZER] = {"TOKEN_ZEROINITIALIZER", "zeroinitializer"},
+	[TOKEN_ZEROEXT] = {"TOKEN_ZEROEXT", "zeroext"},
+	[TOKEN_ZEXT] = {"TOKEN_ZEXT", "zext"},
+	[TOKEN_EOF] = {"TOKEN_EOF", "\0"},
+};
+
+typedef struct Position_in_file {
+	char* filename;
+	int line_number;
+	int character_number;
+} position_in_file;
+
+typedef union {
+	float fval;
+	int ival;
+} value;
 
 /*
 * Token is used to store data on a token.
@@ -142,9 +345,42 @@ typedef enum {
 * that cannot be communicated simply through its name.
 */
 typedef struct Token {
-	token_name name;	/* The name or 'class' of token.		*/
-	char* lexeme;		/* The lexeme or 'contents' of token	*/
-	int value;  /* The value or meaning behind a token	*/
+	token_name name;		/* The name or 'class' of token.		*/
+	char* lexeme;			/* The lexeme or 'contents' of token.	*/
+	value val;				/* The value or meaning behind a token.	*/
+	position_in_file pos;	/* Used for error recovery.				*/
 } token;
 
 char* token_name_lookup[][2];
+
+#define lookup_token_as_name(a) token_name_lookup[a][0]
+#define lookup_token_as_lexeme(a) token_name_lookup[a][1]
+
+/**
+* Reponsible for printing a token and its contents.
+*
+* @param tk the token to print
+*/
+void inline print_token(token** tk) {
+	char* field_format = "%-24s\t%-16s\t%-8d\n";
+	printf(field_format,
+		lookup_token_as_name((**tk).name),
+		(**tk).lexeme,
+		(**tk).val);
+}
+
+/**
+* Responsible for printing a given list of pointers to tokens,
+* including all of their field contents.
+*
+* @param tokens
+*/
+void inline print_token_list(token** tokens) {
+	token** tk = tokens;
+	char* header_format = "%-24s\t%-16s\t%-8s\n";
+	printf(header_format, "Token Name", "Token Lexeme", "Token Value");
+	printf(header_format, "----------", "------------", "-----------");
+	while (*tk != NULL) {
+		print_token(tk++);
+	};
+}

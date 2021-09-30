@@ -1,145 +1,9 @@
 /* lexer.c - Peforms lexical analysis on given input after preprocessing */
 
-#include "lexer.h"
+#pragma once
 
-/*
-* token_name_lookup is used to associate a tokens internal name
-* with a human-readable name. Used for human interfacing and also
-* for testing purposes. Lexeme is the appropriate lexeme, or
-* an example lexeme if more than one exists.
-*/
-char* token_name_lookup[][2] = {
-	[ERROR_TOKEN] = {"TOKEN_ERROR", ""},
-	[TOKEN_ADD] = {"TOKEN_ADD", "add"},
-	[TOKEN_ASM] = {"TOKEN_ASM", "asm"},
-	[TOKEN_AGGR] = {"TOKEN_AGGR", "aggr"},
-	[TOKEN_ALIGN] = {"TOKEN_ALIGN", "align"},
-	[TOKEN_ALLOCA] = {"TOKEN_ALLOCA", "alloca"},
-	[TOKEN_AND] = {"TOKEN_AND", "and"},
-	[TOKEN_ASHR] = {"TOKEN_ASHR", "ashr"},
-	[TOKEN_BIGENDIAN] = {"TOKEN_BIGENDIAN", "bigendian"},
-	[TOKEN_BITCAST] = {"TOKEN_BITCAST", "bitcast"},
-	[TOKEN_BLOCKLABEL] = {"TOKEN_BLOCKLABEL", "entry:"},
-	[TOKEN_BR] = {"TOKEN_BR", "br"},
-	[TOKEN_CALL] = {"TOKEN_CALL", "call"},
-	[TOKEN_CLEANUP] = {"TOKEN_CLEANUP", "cleanup"},
-	[TOKEN_CLOSE_ANGLE_BRACKET] = {"TOKEN_CLOSE_ANGLE_BRACKET", ">"},
-	[TOKEN_CLOSE_BRACKET] = {"TOKEN_CLOSE_BRACKET", "]"},
-	[TOKEN_CLOSE_CURLY_BRACKET] = {"TOKEN_CLOSE_CURLY_BRACKET", "}"},
-	[TOKEN_CLOSE_PAREN] = {"TOKEN_CLOSE_PAREN", "]"},
-	[TOKEN_CMPXCHG] = {"TOKEN_CMPXCHG", "cmpxchg"},
-	[TOKEN_COMMA] = {"TOKEN_COMMA", ","},
-	[TOKEN_COMDAT] = {"TOKEN_COMDAT", "comdat"},
-	[TOKEN_DECLARE] = {"TOKEN_DECLARE", "declare"},
-	[TOKEN_DEFINE] = {"TOKEN_DEFINE", "define"},
-	[TOKEN_DOTDOTDOT] = {"TOKEN_DOTDOTDOT", "..."},
-	[TOKEN_DOUBLE] = {"TOKEN_DOUBLE", "double"},
-	[TOKEN_DSO_LOCAL] = {"TOKEN_DSO_LOCAL", "dso_local"},
-	[TOKEN_DLLIMPORT] = {"TOKEN_DLL_IMPORT", "dllimport"},
-	[TOKEN_EQUALS] = {"TOKEN_EQUALS", "="},
-	[TOKEN_EQ] = {"TOKEN_EQ", "eq"},
-	[TOKEN_EXACT] = {"TOKEN_EXACT", "exact"},
-	[TOKEN_EXTRACTVALUE] = {"TOKEN_EXTRACTVALUE", "extractvalue"},
-	[TOKEN_FADD] = {"TOKEN_FADD", "fadd"},
-	[TOKEN_FALSE] = {"TOKEN_FALSE", "false"},
-	[TOKEN_FCMP] = {"TOKEN_FCMP", "fcmp"},
-	[TOKEN_FDIV] = {"TOKEN_FDIV", "fdiv"},
-	[TOKEN_FENCE] = {"TOKEN_FENCE", "fence"},
-	[TOKEN_FLOAT] = {"TOKEN_FLOAT", "float"},
-	[TOKEN_FLOAT_LITERAL] = {"TOKEN_FLOAT_LITERAL", "1.1e+1"},
-	[TOKEN_FMUL] = {"TOKEN_FMUL", "fmul"},
-	[TOKEN_FPEXT] = {"TOKEN_FPEXT", "fpext"},
-	[TOKEN_FPTOUI] = {"TOKEN_FPTOUI", "fptoui"},
-	[TOKEN_FPTOSI] = {"TOKEN_FPTOSI", "fptosi"},
-	[TOKEN_FREE] = {"TOKEN_FREE", "free"},
-	[TOKEN_FREM] = {"TOKEN_FREM", "frem"},
-	[TOKEN_FNEG] = {"TOKEN_FNEG", "fneg"},
-	[TOKEN_FSUB] = {"TOKEN_FSUB", "fsub"},
-	[TOKEN_GETELEMENTPTR] = {"TOKEN_GETELEMENTPTR", "getelementptr"},
-	[TOKEN_GLOBAL] = {"TOKEN_GLOBAL", "global"},
-	[TOKEN_ICMP] = {"TOKEN_ICMP", "icmp"},
-	[TOKEN_IDENTIFIER] = {"TOKEN_IDENTIFIER", "%identifier"},
-	[TOKEN_IMMARG] = {"TOKEN_IMMARGS", "immargs"},
-	[TOKEN_INBOUNDS] = {"TOKEN_INBOUNDS", "inbounds"},
-	[TOKEN_INTEGERTYPE] = {"TOKEN_INTEGERTYPE", "i32"},
-	[TOKEN_INTERNAL] = {"TOKEN_INTERNAL", "internal"},
-	[TOKEN_INTTOPTR] = {"TOKEN_INTTOPTR", "inttoptr"},
-	[TOKEN_INVOKE] = {"TOKEN_INVOKE", "invoke"},
-	[TOKEN_LITTLEENDIAN] = {"TOKEN_LITTLEENDIAN", "littleendian"},
-	[TOKEN_LINKONCE_ODR] = {"TOKEN_LINKONCE", "linkonce_odr"},
-	[TOKEN_LABEL] = {"TOKEN_LABEL", "label"},
-	[TOKEN_LANDINGPAD] = {"TOKEN_LANDINGPAD", "Landingpad"},
-	[TOKEN_LOAD] = {"TOKEN_LOAD", "load"},
-	[TOKEN_LSHR] = {"TOKEN_LSHR", "lshr"},
-	[TOKEN_MALLOC] = {"TOKEN_MALLOC", "malloc"},
-	[TOKEN_MUL] = {"TOKEN_MUL", "mul"},
-	[TOKEN_NE] = {"TOKEN_NE", "ne"},
-	[TOKEN_NOALIAS] = {"TOKEN_NOALIAS", "noalias"},
-	[TOKEN_NOCAPTURE] = {"TOKEN_NOCAPTURE", "nocapture"},
-	[TOKEN_NULL] = {"TOKEN_NULL", "null"},
-	[TOKEN_NUW] = {"TOKEN_NUW", "nuw"},
-	[TOKEN_NSW] = {"TOKEN_NSW", "nsw"},
-	[TOKEN_OEQ] = {"TOKEN_OEQ", "oeq"},
-	[TOKEN_OPEN_CURLY_BRACKET] = {"TOKEN_OPEN_CURLY_BRACKET", "{"},
-	[TOKEN_OPEN_ANGLE_BRACKET] = {"TOKEN_OPEN_ANGLE_BRACKET", "<"},
-	[TOKEN_OPEN_BRACKET] = {"TOKEN_OPEN_BRACKET", "["},
-	[TOKEN_OPEN_PAREN] = {"TOKEN_OPEN_PAREN", "("},
-	[TOKEN_OR] = {"TOKEN_OR", "or"},
-	[TOKEN_OGE] = {"TOKEN_OGE", "oge"},	
-	[TOKEN_OGT] = {"TOKEN_OGT", "ogt"},
-	[TOKEN_OLE] = {"TOKEN_OLE", "ole"},
-	[TOKEN_OLT] = {"TOKEN_OLT", "olt"},
-	[TOKEN_PERSONALITY] = {"TOKEN_PERSONALITY", "personality"},
-	[TOKEN_PHI] = {"TOKEN_PHI", "phi"},
-	[TOKEN_PTR] = {"TOKEN_PTR", "*"},
-	[TOKEN_PTRTOINT] = {"TOKEN_PTRTOINT", "ptrtoint"},
-	[TOKEN_READONLY] = {"TOKEN_READONLY", "readonly"},
-	[TOKEN_RET] = {"TOKEN_RET", "ret"},
-	[TOKEN_SDIV] = {"TOKEN_SDIV", "sdiv"},
-	[TOKEN_SELECT] = {"TOKEN_SELECT", "select"},
-	[TOKEN_SEXT] = {"TOKEN_SEXT", "sext"},
-	[TOKEN_STRING] = {"TOKEN_STRING", "\"string\""},
-	[TOKEN_SEQ_CST] = {"TOKEN_SEQ_CST", "seq_cst"},
-	[TOKEN_SITOFP] = {"TOKEN_SITOFP", "sitofp"},
-	[TOKEN_SGT] = {"TOKEN_SGT", "sgt"},
-	[TOKEN_SGE] = {"TOKEN_SGE", "sge"},
-	[TOKEN_SLE] = {"TOKEN_SLE", "sle"},
-	[TOKEN_SLT] = {"TOKEN_SLT", "slt"},
-	[TOKEN_SHL] = {"TOKEN_SHL", "shl"},
-	[TOKEN_STRING] = {"TOKEN_STRING", "\"string\""},
-	[TOKEN_SREM] = {"TOKEN_SREM", "srem"},
-	[TOKEN_STACK] = {"TOKEN_STACK", "stack"},
-	[TOKEN_STORE] = {"TOKEN_STORE", "store"},
-	[TOKEN_SUB] = {"TOKEN_SUB", "sub"},
-	[TOKEN_SWITCH] = {"TOKEN_SWITCH", "switch"},
-	[TOKEN_SYNCSCOPE] = {"TOKEN_SYNCSCOPE", "syncscope"},
-	[TOKEN_SZ] = {"TOKEN_SZ", "1"},
-	[TOKEN_TAIL] = {"TOKEN_TAIL", "tail"},
-	[TOKEN_TO] = {"TOKEN_TO", "to"},
-	[TOKEN_TRUNC] = {"TOKEN_TRUNC", "trunc"},
-	[TOKEN_TRUE] = {"TOKEN_TRUE", "true"},
-	[TOKEN_TYP] = {"TOKEN_TYP", "typ"},
-	[TOKEN_UDIV] = {"TOKEN_UDIV", "udiv"},
-	[TOKEN_UITOFP] = {"TOKEN_UITOFP", "uitofp"},
-	[TOKEN_UGE] = {"TOKEN_UGE", "uge"},
-	[TOKEN_UGT] = {"TOKEN_UGT", "ugt"},
-	[TOKEN_ULE] = {"TOKEN_ULE", "ule"},
-	[TOKEN_UNE] = {"TOKEN_UNE", "une"},
-	[TOKEN_ULT] = {"TOKEN_ULT", "ult"},
-	[TOKEN_UNDEF] = {"TOKEN_UNDEF", "undef"},
-	[TOKEN_UNWIND] = {"TOKEN_UNWIND", "unwind"},
-	[TOKEN_UNREACHABLE] = {"TOKEN_UNREACHABLE", "unreachable"},
-	[TOKEN_UREM] = {"TOKEN_UREM", "urem"},
-	[TOKEN_VAL] = {"TOKEN_VAL", "val"},
-	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
-	[TOKEN_VOID] = {"TOKEN_VOID", "void"},
-	[TOKEN_VOLATILE] = {"TOKEN_VOLATILE", "volatile"},
-	[TOKEN_X] = {"TOKEN_X", "x"},
-	[TOKEN_XOR] = {"TOKEN_XOR", "xor"},
-	[TOKEN_WRITEONLY] = {"TOKEN_WRITEONLY", "writeonly"},
-	[TOKEN_ZEROINITIALIZER] = {"TOKEN_ZEROINITIALIZER", "zeroinitializer"},
-	[TOKEN_ZEXT] = {"TOKEN_ZEXT", "zext"},
-};
+#include "lexer.h"
+#include "preprocessor.h"
 
 /**
 * Responsible for creating a token struct from given data.
@@ -151,14 +15,21 @@ char* token_name_lookup[][2] = {
 * @param lexeme The lexeme (text) behind the new token
 * @param val The value of the new token (not neccessarily meaningful)
 */
-struct Token* make_token(token_name name, char* lexeme, int val) {
+struct Token* make_token(
+	token_name name, preprocessed_word word, value val) {
 	token *tk = malloc(sizeof(token));
 	// Copying Name.
 	tk->name = name;
 	// Copying lexeme.
-	tk->lexeme = lexeme;
+	tk->lexeme = word.word;;
 	// Copying value.
-	tk->value = val;
+	if (name == TOKEN_FLOAT_LITERAL) { 
+		tk->val.fval = val.fval;
+	} else { 
+		tk->val.ival = val.ival;
+	}
+	// Copying position
+	tk->pos = word.pos;
 	return tk;
 }
 
@@ -171,8 +42,8 @@ struct Token* make_token(token_name name, char* lexeme, int val) {
 * @param expected The word we expect the input to be for us to go to state
 * @param result The result state we go to if we see a match.
 */
-state match(char* input, char* expected, state result) {
-	if (strcmp(input, expected) == 0) {
+state match(char* word, char* expected, state result) {
+	if (strcmp(word, expected) == 0) {
 		return result;
 	} else {
 		return STATE_UNRECOGNISED;
@@ -185,18 +56,19 @@ state match(char* input, char* expected, state result) {
 * 
 * @param input The input to tokenize.
 */
-struct Token *tokenize(char* input) {
-	char* ci = input; /* ci represents the currently considered char */
+struct Token *tokenize(preprocessed_word word) {
+	char* lexeme = word.word; /* ci represents the currently considered char */
+	value val; val.ival = 0;
 	state current_state = BEGIN_STATE;
 	while (current_state != END_STATE) {
 		if (DEBUG_TOKENIZE) { 
 			printf("CURRENT STATE: %d\n", current_state);
-			printf("WORD REMAINING: %s\n", ci);
+			printf("WORD REMAINING: %s\n", lexeme);
 		}
 		switch (current_state) {
 
 			case BEGIN_STATE:
-					switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a':
 						current_state = STATE_A;
 						continue;
@@ -237,7 +109,7 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_P;
 						continue;
 					case 'r':
-						if (*ci++ == 'e') {
+						if (*lexeme++ == 'e') {
 							current_state = STATE_RE;
 							continue;
 						}
@@ -256,17 +128,17 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_V;
 						continue;
 					case 'w':
-						current_state = match(ci, "riteonly", STATE_WRITEONLY);
+						current_state = STATE_W;
 						continue;
 					case 'x':
-						if (*ci == NULL) {
+						if (*lexeme == NULL) {
 							current_state = STATE_X;
 							continue;
 						} 
-						current_state = match(ci, "or", STATE_XOR);
+						current_state = match(lexeme, "or", STATE_XOR);
 						continue;
 					case 'z':
-						if (*ci++ == 'e') {
+						if (*lexeme++ == 'e') {
 							current_state = STATE_ZE;
 							continue;
 						}
@@ -286,61 +158,67 @@ struct Token *tokenize(char* input) {
 					case '#':
 						current_state = STATE_IDENTIFIER;
 						continue;
+					case '$':
+						current_state = STATE_IDENTIFIER;
+						continue;
 					case '=':
-						current_state = match(ci, "", STATE_EQUALS);
+						current_state = match(lexeme, "", STATE_EQUALS);
 						continue;
 					case '(':
-						current_state = match(ci, "", STATE_OPEN_PAREN);
+						current_state = match(lexeme, "", STATE_OPEN_PAREN);
 						continue;
 					case ')':
-						current_state = match(ci, "", STATE_CLOSE_PAREN);
+						current_state = match(lexeme, "", STATE_CLOSE_PAREN);
 						continue;
 					case '[':
-						current_state = match(ci, "", STATE_OPEN_BRACKET);
+						current_state = match(lexeme, "", STATE_OPEN_BRACKET);
 						continue;
 					case ']':
-						current_state = match(ci, "", STATE_CLOSE_BRACKET);
+						current_state = match(lexeme, "", STATE_CLOSE_BRACKET);
 						continue;
 					case '{':
 						current_state = match(
-							ci, "", STATE_OPEN_CURLY_BRACKET);
+							lexeme, "", STATE_OPEN_CURLY_BRACKET);
 						continue;
 					case '}':
 						current_state = match(
-							ci, "", STATE_CLOSE_CURLY_BRACKET);
+							lexeme, "", STATE_CLOSE_CURLY_BRACKET);
 						continue;
 					case '<':
 						current_state = match(
-							ci, "", STATE_OPEN_ANGLE_BRACKET);
+							lexeme, "", STATE_OPEN_ANGLE_BRACKET);
 						continue;
 					case '>':
 						current_state = match(
-							ci, "", STATE_CLOSE_ANGLE_BRACKET);
+							lexeme, "", STATE_CLOSE_ANGLE_BRACKET);
 						continue;
 					case ',':
-						current_state = match(ci, "", STATE_COMMA);
+						current_state = match(lexeme, "", STATE_COMMA);
 						continue;
 					case '.':
-						current_state = match(ci, "..", STATE_DOTDOTDOT);
+						current_state = match(lexeme, "..", STATE_DOTDOTDOT);
+						continue;
+					case '!':
+						current_state = match(lexeme, "", STATE_EXCLAMATION_MARK);
 						continue;
 					case '"':
-						while (*ci++ != '"') {
-							if (*ci == NULL) {
+						while (*lexeme++ != '"') {
+							if (*lexeme == NULL) {
 								current_state = STATE_UNRECOGNISED;
 								continue;
 							}
 						}
-						if (*ci == NULL) {
+						if (*lexeme == NULL) {
 							current_state = STATE_UNRECOGNISED;
 						}
 						current_state = STATE_STRING;
 						continue;
 					case '*':
-						current_state = match(ci, "", STATE_PTR);
+						current_state = match(lexeme, "", STATE_PTR);
 						continue;
 					case '0': 
-						if (*ci == 'x') {
-							ci++;
+						if (*lexeme == 'x') {
+							lexeme++;
 							current_state = STATE_OX;
 							continue;
 						}
@@ -349,20 +227,23 @@ struct Token *tokenize(char* input) {
 					case '7': case '8': case '9': 
 						current_state = STATE_DIGITS;
 						continue;
+					case '\0':
+						return make_token(TOKEN_EOF, word, val);
 					default: 
 						current_state = STATE_UNRECOGNISED;
 						continue;
+					
 			}
 			break;
 
 			case STATE_EX:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 't':
 						current_state = match(
-							ci, "ractvalue", STATE_EXTRACTVALUE);
+							lexeme, "ractvalue", STATE_EXTRACTVALUE);
 						continue;
 					case 'a':
-						current_state = match(ci, "ct", STATE_EXACT);
+						current_state = match(lexeme, "ct", STATE_EXACT);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -371,20 +252,21 @@ struct Token *tokenize(char* input) {
 				break;
 
 			case STATE_ERROR_ENCOUNTERED:	
-				return make_token(ERROR_TOKEN, input, NULL);
+				return make_token(ERROR_TOKEN, word, val);
 			case STATE_EXACT: 
-				return make_token(TOKEN_EXACT, input, NULL);
-
+				return make_token(TOKEN_EXACT, word, val);
+			case STATE_EXCLAMATION_MARK:
+				return make_token(TOKEN_EXCLAMATION_MARK, word, val);
 			case STATE_UGT: 
-				return make_token(TOKEN_UGT, input, NULL);
+				return make_token(TOKEN_UGT, word, val);
 
 			case STATE_UL: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 't':
-						current_state = match(ci, "", STATE_ULT);
+						current_state = match(lexeme, "", STATE_ULT);
 						continue;
 					case 'e':
-						current_state = match(ci, "", STATE_ULE);
+						current_state = match(lexeme, "", STATE_ULE);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -393,12 +275,12 @@ struct Token *tokenize(char* input) {
 				break;
 			
 			case STATE_ULT: 
-				return make_token(TOKEN_ULT, input, NULL);
+				return make_token(TOKEN_ULT, word, val);
 			case STATE_ULE: 
-				return make_token(TOKEN_ULE, input, NULL);
+				return make_token(TOKEN_ULE, word, val);
 
 			case STATE_UNRECOGNISED: 
-				; char* c = input
+				; char* c = word.word
 				; bool is_label = true;
 				// Check if it is a label
 				for (; *(c + 1) != NULL; c++) {
@@ -415,21 +297,27 @@ struct Token *tokenize(char* input) {
 				continue;
 
 			case STATE_A: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'd':
-						current_state = match(ci, "d", STATE_ADD);
+						current_state = match(lexeme, "d", STATE_ADD);
 						continue;
 					case 'g':
-						current_state = match(ci, "gr", STATE_AGGR);
+						current_state = match(lexeme, "gr", STATE_AGGR);
 						continue;
 					case 'l':
 						current_state = STATE_AL;
 						continue;
 					case 'n':
-						current_state = match(ci, "d", STATE_AND);
+						current_state = STATE_AN;
+						continue;
+					case 'r':
+						current_state = match(lexeme, "gmemonly", STATE_ARGMEMONLY);
 						continue;
 					case 's':
 						current_state = STATE_AS;
+						continue;
+					case 't':
+						current_state = match(lexeme, "tributes", STATE_ATTRIBUTES);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -437,17 +325,17 @@ struct Token *tokenize(char* input) {
 				break;
 
 			case STATE_ADD: 
-				return make_token(TOKEN_ADD, input, NULL);
+				return make_token(TOKEN_ADD, word, val);
 			case STATE_AGGR: 
-				return make_token(TOKEN_AGGR, input, NULL);
+				return make_token(TOKEN_AGGR, word, val);
 
 			case STATE_AL:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'i':
-						current_state = match(ci, "gn", STATE_ALIGN);
+						current_state = match(lexeme, "gn", STATE_ALIGN);
 						continue;
 					case 'l':
-						current_state = match(ci, "oca", STATE_ALLOCA);
+						current_state = match(lexeme, "oca", STATE_ALLOCA);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -455,19 +343,34 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_ALIGN: 
-				return make_token(TOKEN_ALIGN, input, NULL);
+				return make_token(TOKEN_ALIGN, word, val);
 			case STATE_ALLOCA: 
-				return make_token(TOKEN_ALLOCA, input, NULL);
+				return make_token(TOKEN_ALLOCA, word, val);
+
+			case STATE_AN:
+				switch (*lexeme++) {
+					case 'd':
+						current_state = match(lexeme, "", STATE_AND);
+						continue;
+					case 'y':
+						current_state = match(lexeme, "", STATE_ANY);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				;}
+			case STATE_ANY:
+				return make_token(TOKEN_ANY, word, val);
 			case STATE_AND: 
-				return make_token(TOKEN_AND, input, NULL);
+				return make_token(TOKEN_AND, word, val);
 
 			case STATE_AS:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'm':
-						current_state = match(ci, "", STATE_ASM);
+						current_state = match(lexeme, "", STATE_ASM);
 						continue;
 					case 'h':
-						current_state = match(ci, "r", STATE_ASHR);
+						current_state = match(lexeme, "r", STATE_ASHR);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -476,12 +379,16 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_ASM: 
-				return make_token(TOKEN_ASM, input, NULL);
+				return make_token(TOKEN_ASM, word, val);
+			case STATE_ATTRIBUTES:
+				return make_token(TOKEN_ATTRIBUTES, word, val);
+			case STATE_ARGMEMONLY:
+				return make_token(TOKEN_ARGMEMONLY, word, val);
 			case STATE_ASHR: 
-				return make_token(TOKEN_ASHR, input, NULL);
+				return make_token(TOKEN_ASHR, word, val);
 
 			case STATE_B: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'i': 
 						current_state = STATE_BI;
 						continue;
@@ -495,14 +402,14 @@ struct Token *tokenize(char* input) {
 				break;
 
 			case STATE_BI: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'g':
 						current_state = match(
-							ci, "endian", STATE_BIGENDIAN);
+							lexeme, "endian", STATE_BIGENDIAN);
 						continue;
 					case 't':
 						current_state = match(
-							ci, "cast", STATE_BITCAST);
+							lexeme, "cast", STATE_BITCAST);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -511,25 +418,34 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_BIGENDIAN: 
-				return make_token(TOKEN_BIGENDIAN, input, NULL);
+				return make_token(TOKEN_BIGENDIAN, word, val);
 			case STATE_BITCAST: 
-				return make_token(TOKEN_BITCAST, input, NULL);
+				return make_token(TOKEN_BITCAST, word, val);
 			case STATE_BR: 
-				return make_token(TOKEN_BR, input, NULL);
+				return make_token(TOKEN_BR, word, val);
 
 			case STATE_C:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a':
-						current_state = match(ci, "ll", STATE_CALL);
+						current_state = match(lexeme, "ll", STATE_CALL);
 						continue;
 					case 'l':
-						current_state = match(ci, "eanup", STATE_CLEANUP);
+						current_state = match(lexeme, "eanup", STATE_CLEANUP);
 						continue;
 					case 'm':
-						current_state = match(ci, "pxchg", STATE_CMPXCHG);
+						current_state = match(lexeme, "pxchg", STATE_CMPXCHG);
 						continue;
 					case 'o':
-						current_state = match(ci, "mdat", STATE_COMDAT);
+						current_state = STATE_CO;
+						continue;
+					case '"':
+						while (*lexeme++ != '"') {
+							if (*lexeme == NULL) {
+								current_state = STATE_ERROR_ENCOUNTERED;
+								continue;
+							}
+						}
+						current_state = STATE_CSTRING;
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -538,53 +454,80 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_CALL: 
-				return make_token(TOKEN_CALL, input, NULL);
+				return make_token(TOKEN_CALL, word, val);
 			case STATE_CLEANUP: 
-				return make_token(TOKEN_CLEANUP, input, NULL);
+				return make_token(TOKEN_CLEANUP, word, val);
 			case STATE_CLOSE_ANGLE_BRACKET: 
-				return make_token(TOKEN_CLOSE_ANGLE_BRACKET, input, NULL);
+				return make_token(TOKEN_CLOSE_ANGLE_BRACKET, word, val);
 			case STATE_CLOSE_CURLY_BRACKET: 
-				return make_token(TOKEN_CLOSE_CURLY_BRACKET, input, NULL);
+				return make_token(TOKEN_CLOSE_CURLY_BRACKET, word, val);
 			case STATE_CLOSE_BRACKET: 
-				return make_token(TOKEN_CLOSE_BRACKET, input, NULL);
+				return make_token(TOKEN_CLOSE_BRACKET, word, val);
 			case STATE_CLOSE_PAREN: 
-				return make_token(TOKEN_CLOSE_PAREN, input, NULL);
+				return make_token(TOKEN_CLOSE_PAREN, word, val);
 			case STATE_CMPXCHG: 
-				return make_token(TOKEN_CMPXCHG, input, NULL);
+				return make_token(TOKEN_CMPXCHG, word, val);
+
+			case STATE_CO:
+				switch (*lexeme++) {
+					case 'n':
+						current_state = match(lexeme, "stant", STATE_CONSTANT);
+						continue;
+					case 'm':
+						current_state = match(lexeme, "dat", STATE_COMDAT);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+				return NULL;
+
+			case STATE_CONSTANT:
+				return make_token(TOKEN_CONSTANT, word, val);
 			case STATE_COMDAT: 
-				return make_token(TOKEN_COMDAT, input, NULL);
+				return make_token(TOKEN_COMDAT, word, val);
 			case STATE_COMMA: 
-				return make_token(TOKEN_COMMA, input, NULL);
+				return make_token(TOKEN_COMMA, word, val);
 
 			case STATE_D: 
-				switch (*ci++) {
+				switch (*lexeme++) {
+					case 'a':
+						current_state = match(
+							lexeme, "talayout", STATE_DATALAYOUT);
+						continue;
 					case 'e':
 						current_state = STATE_DE;
 						continue;
 					case 'l':
 						current_state = match(
-							ci, "limport", STATE_DLLIMPORT);
+							lexeme, "limport", STATE_DLLIMPORT);
 						continue;
 					case 'o':
 						current_state = match(
-							ci, "uble", STATE_DOUBLE);
+							lexeme, "uble", STATE_DOUBLE);
 						continue;
 					case 's':
 						current_state = match(
-							ci, "o_local", STATE_DSO_LOCAL);
+							lexeme, "o_local", STATE_DSO_LOCAL);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
 				};
 
+			case STATE_CSTRING:
+				return make_token(TOKEN_CSTRING, word, val);
+
+			case STATE_DATALAYOUT:
+				return make_token(TOKEN_DATALAYOUT, word, val);
+
 			case STATE_DE: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'c':
-						current_state = match(ci, "lare", STATE_DECLARE);
+						current_state = match(lexeme, "lare", STATE_DECLARE);
 						continue;
 					case 'f':
-						current_state = match(ci, "ine", STATE_DEFINE);
+						current_state = match(lexeme, "ine", STATE_DEFINE);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -592,20 +535,20 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_DECLARE: 
-				return make_token(TOKEN_DECLARE, input, NULL);
+				return make_token(TOKEN_DECLARE, word, val);
 			case STATE_DEFINE:
-				return make_token(TOKEN_DEFINE, input, NULL);
+				return make_token(TOKEN_DEFINE, word, val);
 			case STATE_DLLIMPORT: 
-				return make_token(TOKEN_DLLIMPORT, input, NULL);
+				return make_token(TOKEN_DLLIMPORT, word, val);
 			case STATE_DOTDOTDOT: 
-				return make_token(TOKEN_DOTDOTDOT, input, NULL);
+				return make_token(TOKEN_DOTDOTDOT, word, val);
 			case STATE_DOUBLE: 
-				return make_token(TOKEN_DOUBLE, input, NULL);
+				return make_token(TOKEN_DOUBLE, word, val);
 			case STATE_DSO_LOCAL: 
-				return make_token(TOKEN_DSO_LOCAL, input, NULL);
+				return make_token(TOKEN_DSO_LOCAL, word, val);
 			
 			case STATE_E:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'q':
 						current_state = STATE_EQ;
 						continue;
@@ -619,44 +562,44 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_EQ: 
-				return make_token(TOKEN_EQ, input, NULL);
+				return make_token(TOKEN_EQ, word, val);
 			case STATE_EQUALS: 
-				return make_token(TOKEN_EQUALS, input, NULL);
+				return make_token(TOKEN_EQUALS, word, val);
 
 			case STATE_F: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a': 
 						current_state = STATE_FA;
 						continue;
 					case 'c':
 						current_state = match(
-							ci, "mp", STATE_FCMP);
+							lexeme, "mp", STATE_FCMP);
 						continue;
 					case 'd':
 						current_state = match(
-							ci, "iv", STATE_FDIV);
+							lexeme, "iv", STATE_FDIV);
 						continue;
 					case 'e':
 						current_state = match(
-							ci, "nce", STATE_FENCE);
+							lexeme, "nce", STATE_FENCE);
 						continue;
 					case 'l':
 						current_state = match(
-							ci, "oat", STATE_FLOAT);
+							lexeme, "oat", STATE_FLOAT);
 						continue;
 					case 'm':
 						current_state = match(
-							ci, "ul", STATE_FMUL);
+							lexeme, "ul", STATE_FMUL);
 						continue;
 					case 'n':
 						current_state = match(
-							ci, "eg", STATE_FNEG);
+							lexeme, "eg", STATE_FNEG);
 						continue;
 					case 'p':
 						current_state = STATE_FP;
 						continue;
 					case 'r':
-						switch (*ci++) {
+						switch (*lexeme++) {
 							case 'e':
 								current_state = STATE_FRE;
 								continue;
@@ -665,7 +608,7 @@ struct Token *tokenize(char* input) {
 								continue;
 						}
 					case 's':
-						current_state = match(ci, "ub", STATE_FSUB);
+						current_state = match(lexeme, "ub", STATE_FSUB);
 						continue;
 					default: 
 						current_state = STATE_UNRECOGNISED;
@@ -673,12 +616,12 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_FA:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'd':
-						current_state = match(ci, "d", STATE_FADD);
+						current_state = match(lexeme, "d", STATE_FADD);
 						continue;
 					case 'l':
-						current_state = match(ci, "se", STATE_FALSE);
+						current_state = match(lexeme, "se", STATE_FALSE);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -688,30 +631,30 @@ struct Token *tokenize(char* input) {
 				continue;
 
 			case STATE_FALSE: 
-				return make_token(TOKEN_FALSE, input, NULL);
+				return make_token(TOKEN_FALSE, word, val);
 			case STATE_FADD:
-				return make_token(TOKEN_FADD, input, NULL);
+				return make_token(TOKEN_FADD, word, val);
 			case STATE_FCMP: 
-				return make_token(TOKEN_FCMP, input, NULL);
+				return make_token(TOKEN_FCMP, word, val);
 			case STATE_FDIV: 
-				return make_token(TOKEN_FDIV, input, NULL);
+				return make_token(TOKEN_FDIV, word, val);
 			case STATE_FENCE: 
-				return make_token(TOKEN_FENCE, input, NULL);
+				return make_token(TOKEN_FENCE, word, val);
 			case STATE_FLOAT: 
-				return make_token(TOKEN_FLOAT, input, NULL);
+				return make_token(TOKEN_FLOAT, word, val);
 			case STATE_FMUL: 
-				return make_token(TOKEN_FMUL, input, NULL);
+				return make_token(TOKEN_FMUL, word, val);
 			case STATE_FNEG: 
-				return make_token(TOKEN_FNEG, input, NULL);
+				return make_token(TOKEN_FNEG, word, val);
 
 			case STATE_FP:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
 						current_state = match(
-							ci, "xt", STATE_FPEXT);
+							lexeme, "xt", STATE_FPEXT);
 						continue;
 					case 't':
-						if (*(ci++) == 'o') {
+						if (*(lexeme++) == 'o') {
 							current_state = STATE_FPTO;
 						}
 						continue;
@@ -721,15 +664,15 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_FPEXT: 
-				return  make_token(TOKEN_FPEXT, input, NULL);
+				return  make_token(TOKEN_FPEXT, word, val);
 				
 			case STATE_FPTO:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'u':
-						current_state = match(ci, "i", STATE_FPTOUI);
+						current_state = match(lexeme, "i", STATE_FPTOUI);
 						continue;
 					case 's':
-						current_state = match(ci, "i", STATE_FPTOSI);
+						current_state = match(lexeme, "i", STATE_FPTOSI);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -739,17 +682,17 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_FPTOUI: 
-				return make_token(TOKEN_FPTOUI, input, NULL);
+				return make_token(TOKEN_FPTOUI, word, val);
 			case STATE_FPTOSI: 
-				return make_token(TOKEN_FPTOSI, input, NULL);
+				return make_token(TOKEN_FPTOSI, word, val);
 
 			case STATE_FRE: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "", STATE_FREE);
+						current_state = match(lexeme, "", STATE_FREE);
 						continue;
 					case 'm':
-						current_state = match(ci, "", STATE_FREM);
+						current_state = match(lexeme, "", STATE_FREM);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -757,21 +700,21 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_FREE: 
-				return make_token(TOKEN_FREE, input, NULL);
+				return make_token(TOKEN_FREE, word, val);
 			case STATE_FREM: 
-				return make_token(TOKEN_FREM, input, NULL);
+				return make_token(TOKEN_FREM, word, val);
 			case STATE_FSUB: 
-				return make_token(TOKEN_FSUB, input, NULL);
+				return make_token(TOKEN_FSUB, word, val);
 
 			case STATE_G: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
 						current_state = match(
-							ci, "telementptr", STATE_GETELEMENTPTR);
+							lexeme, "telementptr", STATE_GETELEMENTPTR);
 						continue;
 					case 'l':
 						current_state = match(
-							ci, "obal", STATE_GLOBAL);
+							lexeme, "obal", STATE_GLOBAL);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -779,19 +722,19 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_GETELEMENTPTR: 
-				return make_token(TOKEN_GETELEMENTPTR, input, NULL);
+				return make_token(TOKEN_GETELEMENTPTR, word, val);
 			case STATE_GLOBAL: 
-				return make_token(TOKEN_GLOBAL, input, NULL);
+				return make_token(TOKEN_GLOBAL, word, val);
 
 			case STATE_I: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'c':
 						current_state = match(
-							ci, "mp", STATE_ICMP);
+							lexeme, "mp", STATE_ICMP);
 						continue;
 					case 'm':
 						current_state = match(
-							ci, "marg", STATE_IMMARG);
+							lexeme, "marg", STATE_IMMARG);
 						continue;
 					case 'n':
 						current_state = STATE_IN;
@@ -808,15 +751,15 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_IN:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'b':
-						current_state = match(ci, "ounds", STATE_INBOUNDS);
+						current_state = match(lexeme, "ounds", STATE_INBOUNDS);
 						continue;
 					case 't':
 						current_state = STATE_INT;
 						continue;
 					case 'v':
-						current_state = match(ci, "oke", STATE_INVOKE);
+						current_state = match(lexeme, "oke", STATE_INVOKE);
 						continue;
 					default: 
 						current_state = STATE_UNRECOGNISED;
@@ -824,38 +767,39 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_ICMP: 
-				return make_token(TOKEN_ICMP, input, NULL);
+				return make_token(TOKEN_ICMP, word, val);
 			case STATE_IDENTIFIER: 
-				return make_token(TOKEN_IDENTIFIER, input, NULL);
+				return make_token(TOKEN_IDENTIFIER, word, val);
 			case STATE_IMMARG: 
-				return make_token(TOKEN_IMMARG, input, NULL);
+				return make_token(TOKEN_IMMARG, word, val);
 			case STATE_INBOUNDS:  
-				return make_token(TOKEN_INBOUNDS, input, NULL);
+				return make_token(TOKEN_INBOUNDS, word, val);
 			case STATE_INVOKE: 
-				return make_token(TOKEN_INVOKE, input, NULL);
+				return make_token(TOKEN_INVOKE, word, val);
 
 			case STATE_INTEGERTYPE:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '1': case '2': case '3':
 					case '4': case '5': case '6':
 					case '7': case '8': case '9':
 						current_state = STATE_INTEGERTYPE;
 						continue;
 					case NULL:
+						val.ival = atoi(word.word + 1);
 						return make_token(
-							TOKEN_INTEGERTYPE, input, atoi(input+1));
+							TOKEN_INTEGERTYPE, word, val);
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
 
 			case STATE_INT:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "rnal", STATE_INTERNAL);
+						current_state = match(lexeme, "rnal", STATE_INTERNAL);
 						continue;
 					case 't':
-						current_state = match(ci, "optr", STATE_INTTOPTR);
+						current_state = match(lexeme, "optr", STATE_INTTOPTR);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -863,41 +807,50 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_INTTOPTR: 
-				return make_token(TOKEN_INTTOPTR, input, NULL);
+				return make_token(TOKEN_INTTOPTR, word, val);
 			case STATE_INTERNAL: 
-				return make_token(TOKEN_INTERNAL, input, NULL);
+				return make_token(TOKEN_INTERNAL, word, val);
 
 			case STATE_EXTRACTVALUE: 
-				return make_token(TOKEN_EXTRACTVALUE, input, NULL);
+				return make_token(TOKEN_EXTRACTVALUE, word, val);
 
 			case STATE_L: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a':
 						current_state = STATE_LA;
 						continue;
 					case 'i':
 						current_state = STATE_LI;
 						continue;
+					case 'l':
+						if (*lexeme++ == 'v'
+							&& *lexeme++ =='m'
+							&& *lexeme++ == '.') {
+							current_state = STATE_LLVM_;
+							continue;
+						}
+						current_state = STATE_UNRECOGNISED;
 					case 'o':
 						current_state = match(
-							ci, "ad", STATE_LOAD);
+							lexeme, "ad", STATE_LOAD);
 						continue;
 					case 's':
 						current_state = match(
-							ci, "hr", STATE_LSHR);
+							lexeme, "hr", STATE_LSHR);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
+				return NULL;
 
 			case STATE_LA:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'n':
-						current_state = match(ci, "dingpad", STATE_LANDINGPAD);
+						current_state = match(lexeme, "dingpad", STATE_LANDINGPAD);
 						continue;
 					case 'b':
-						current_state = match(ci, "el", STATE_LABEL);
+						current_state = match(lexeme, "el", STATE_LABEL);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -905,14 +858,14 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_LI:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'n':
 						current_state = match(
-							ci, "konce_odr", STATE_LINKONCE_ODR);
+							lexeme, "konce_odr", STATE_LINKONCE_ODR);
 						continue;
 					case 't':
 						current_state = match(
-							ci, "tleendian", STATE_LITTLEENDIAN);
+							lexeme, "tleendian", STATE_LITTLEENDIAN);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -920,30 +873,48 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_LINKONCE_ODR:
-				return make_token(TOKEN_LINKONCE_ODR, input, NULL);
+				return make_token(TOKEN_LINKONCE_ODR, word, val);
+
+			case STATE_LLVM_:
+				switch (*lexeme++) {
+					case 'i':
+						current_state = match(lexeme, "dent", STATE_LLVM_IDENT);
+						continue;
+					case 'm':
+						current_state = match(lexeme, "odule.flags", STATE_LLVM_MODULE_FLAGS);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+
+			case STATE_LLVM_IDENT:
+				return make_token(TOKEN_LLVM_IDENT, word, val);
+			case STATE_LLVM_MODULE_FLAGS:
+				return make_token(TOKEN_LLVM_MODULE_FLAGS, word, val);
 
 			case STATE_BLOCK_LABEL: 
-				return make_token(TOKEN_BLOCKLABEL, input, NULL);
+				return make_token(TOKEN_BLOCKLABEL, word, val);
 			case STATE_LITTLEENDIAN: 
-				return make_token(TOKEN_LITTLEENDIAN, input, NULL);
+				return make_token(TOKEN_LITTLEENDIAN, word, val);
 			case STATE_LANDINGPAD: 
-				return make_token(TOKEN_LANDINGPAD, input, NULL);
+				return make_token(TOKEN_LANDINGPAD, word, val);
 			case STATE_LABEL:
-				return make_token(TOKEN_LABEL, input, NULL);
+				return make_token(TOKEN_LABEL, word, val);
 			case STATE_LOAD: 
-				return make_token(TOKEN_LOAD, input, NULL);
+				return make_token(TOKEN_LOAD, word, val);
 			case STATE_LSHR: 
-				return make_token(TOKEN_LSHR, input, NULL);
+				return make_token(TOKEN_LSHR, word, val);
 
 			case STATE_M: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a':
 						current_state = match(
-							ci, "lloc", STATE_MALLOC);
+							lexeme, "lloc", STATE_MALLOC);
 						continue;
 					case 'u':
 						current_state = match(
-							ci, "l", STATE_MUL);
+							lexeme, "l", STATE_MUL);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -951,10 +922,10 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_MALLOC: 
-				return make_token(TOKEN_MALLOC, input, NULL);
+				return make_token(TOKEN_MALLOC, word, val);
 
 			case STATE_MINUS: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0':
 					case '1': case '2': case '3': 
 					case '4': case '5': case '6':
@@ -964,18 +935,18 @@ struct Token *tokenize(char* input) {
 				} 
 				return NULL;
 
-			case STATE_MUL: return make_token(TOKEN_MUL, input, NULL);
+			case STATE_MUL: return make_token(TOKEN_MUL, word, val);
 
 			case STATE_N: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "", STATE_NE);
+						current_state = match(lexeme, "", STATE_NE);
 						continue;
 					case 'o':
 						current_state = STATE_NO;
 						continue;
 					case 's':
-						current_state = match(ci, "w", STATE_NSW);
+						current_state = match(lexeme, "w", STATE_NSW);
 						continue;
 					case 'u':
 						current_state = STATE_NU;
@@ -986,15 +957,15 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_NE: 
-				return make_token(TOKEN_NE, input, NULL);
+				return make_token(TOKEN_NE, word, val);
 
 			case STATE_NU:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'w':
 						current_state = STATE_NUW;
 						continue;
 					case 'l':
-						current_state = match(ci, "l", STATE_NULL);
+						current_state = match(lexeme, "l", STATE_NULL);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1003,12 +974,21 @@ struct Token *tokenize(char* input) {
 				
 
 			case STATE_NO:
-				switch (*ci++) {
-					case 'c':
-						current_state = match(ci, "apture", STATE_NOCAPTURE);
-						continue;
+				switch (*lexeme++) {	
 					case 'a':
-						current_state = match(ci, "lias", STATE_NOALIAS);
+						current_state = match(lexeme, "lias", STATE_NOALIAS);
+						continue;
+					case 'b':
+						current_state = match(lexeme, "uiltin", STATE_NOBUILTIN);
+						continue;
+					case 'c':
+						current_state = match(lexeme, "apture", STATE_NOCAPTURE);
+						continue;
+					case 'i':
+						current_state = match(lexeme, "nline", STATE_NOINLINE);
+						continue;
+					case 'u':
+						current_state = match(lexeme, "nwind", STATE_NOUNWIND);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1016,23 +996,32 @@ struct Token *tokenize(char* input) {
 				}
 			
 			case STATE_NOALIAS: 
-				return make_token(TOKEN_NOALIAS, input, NULL);
+				return make_token(TOKEN_NOALIAS, word, val);
+			case STATE_NOBUILTIN:
+				return make_token(TOKEN_NOBUILTIN, word, val);
 			case STATE_NOCAPTURE: 
-				return make_token(TOKEN_NOCAPTURE, input, NULL);
+				return make_token(TOKEN_NOCAPTURE, word, val);
+			case STATE_NOINLINE:
+				return make_token(TOKEN_NOINLINE, word, val);
+			case STATE_NOUNWIND:
+				return make_token(TOKEN_NOUNWIND, word, val);
 			case STATE_NUW: 
-				return make_token(TOKEN_NUW, input, NULL);
+				return make_token(TOKEN_NUW, word, val);
 			case STATE_NSW: 
-				return make_token(TOKEN_NSW, input, NULL);
+				return make_token(TOKEN_NSW, word, val);
 			case STATE_NULL: 
-				return make_token(TOKEN_NULL, input, NULL);
+				return make_token(TOKEN_NULL, word, val);
 
 			case STATE_O:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "q", STATE_OEQ);
+						current_state = match(lexeme, "q", STATE_OEQ);
 						continue;
 					case 'l':
 						current_state = STATE_OL;
+						continue;
+					case 'p':
+						current_state = STATE_OP;
 						continue;
 					case 'r':
 						current_state = STATE_OR;
@@ -1047,15 +1036,15 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_OEQ: 
-				return make_token(TOKEN_OEQ, input, NULL);
+				return make_token(TOKEN_OEQ, word, val);
 
 			case STATE_OG:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "", STATE_OGE);;
+						current_state = match(lexeme, "", STATE_OGE);;
 						continue;
 					case 't':
-						current_state = match(ci, "", STATE_OGT);;
+						current_state = match(lexeme, "", STATE_OGT);;
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1064,12 +1053,12 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_OL:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "", STATE_OLE);;
+						current_state = match(lexeme, "", STATE_OLE);;
 						continue;
 					case 't':
-						current_state = match(ci, "", STATE_OLT);;
+						current_state = match(lexeme, "", STATE_OLT);;
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1077,27 +1066,45 @@ struct Token *tokenize(char* input) {
 				}
 				return NULL;
 
+			case STATE_OP:
+				switch (*lexeme++) {
+					case 'a':
+						current_state = match(lexeme, "que", STATE_OPAQUE);
+						continue;
+					case 't':
+						current_state = match(lexeme, "none", STATE_OPTNONE);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+				return NULL;
+
+			case STATE_OPAQUE:
+				return make_token(TOKEN_OPAQUE, word, val);
+			case STATE_OPTNONE:
+				return make_token(TOKEN_OPTNONE, word, val);
 			case STATE_OPEN_ANGLE_BRACKET: 
-				return make_token(TOKEN_OPEN_ANGLE_BRACKET, input, NULL);
+				return make_token(TOKEN_OPEN_ANGLE_BRACKET, word, val);
 			case STATE_OPEN_CURLY_BRACKET: 
-				return make_token(TOKEN_OPEN_CURLY_BRACKET, input, NULL);
+				return make_token(TOKEN_OPEN_CURLY_BRACKET, word, val);
 			case STATE_OPEN_BRACKET: 
-				return make_token(TOKEN_OPEN_BRACKET, input, NULL);
+				return make_token(TOKEN_OPEN_BRACKET, word, val);
 			case STATE_OPEN_PAREN: 
-				return make_token(TOKEN_OPEN_PAREN, input, NULL);
+				return make_token(TOKEN_OPEN_PAREN, word, val);
 			case STATE_OGE: 
-				return make_token(TOKEN_OGE, input, NULL);
+				return make_token(TOKEN_OGE, word, val);
 			case STATE_OGT: 
-				return make_token(TOKEN_OGT, input, NULL);
+				return make_token(TOKEN_OGT, word, val);
 			case STATE_OLE: 
-				return make_token(TOKEN_OLE, input, NULL);
+				return make_token(TOKEN_OLE, word, val);
 			case STATE_OLT: 
-				return make_token(TOKEN_OLT, input, NULL);
+				return make_token(TOKEN_OLT, word, val);
 			case STATE_OR: 
-				return make_token(TOKEN_OR, input, NULL);
+				return make_token(TOKEN_OR, word, val);
 
 			case STATE_OX:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0': 
 					case '1': case '2': case '3': 
 					case '4': case '5': case '6': 
@@ -1113,13 +1120,14 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_OX_DIGITS:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0': case '1': case '2': case '3': case '4':
 					case '5': case '6': case '7': case '8': case '9':
 					case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
 						continue;
 					case NULL:
-						return make_token(TOKEN_SZ, input, strtol(input, NULL, 0));
+						val.ival = strtol(word.word, NULL, 0);
+						return make_token(TOKEN_SZ, word, val);
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
@@ -1127,18 +1135,23 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_P: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
 						current_state = match(
-							ci, "rsonality", STATE_PERSONALITY);
+							lexeme, "rsonality", STATE_PERSONALITY);
 						continue;
 					case 'h':
 						current_state = match(
-							ci, "i", STATE_PHI);
+							lexeme, "i", STATE_PHI);
+						continue;
+					case 'r':
+						current_state = match(
+							lexeme, "ivate", STATE_PRIVATE
+						);
 						continue;
 					case 't':
 						current_state = match(
-							ci, "rtoint", STATE_PTRTOINT);
+							lexeme, "rtoint", STATE_PTRTOINT);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1146,21 +1159,27 @@ struct Token *tokenize(char* input) {
 				}
 				
 			case STATE_PERSONALITY: 
-				return make_token(TOKEN_PERSONALITY, input, NULL);
+				return make_token(TOKEN_PERSONALITY, word, val);
 			case STATE_PHI: 
-				return make_token(TOKEN_PHI, input, NULL);
+				return make_token(TOKEN_PHI, word, val);
+			case STATE_PRIVATE:
+				return make_token(TOKEN_PRIVATE, word, val);
 			case STATE_PTR: 
-				return make_token(TOKEN_PTR, input, NULL);
+				return make_token(TOKEN_PTR, word, val);
 			case STATE_PTRTOINT: 
-				return make_token(TOKEN_PTRTOINT, input, NULL);
+				return make_token(TOKEN_PTRTOINT, word, val);
 
 			case STATE_RE:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 't':
-						current_state = match(ci, "", STATE_RET);
+						current_state = match(lexeme, "", STATE_RET);
 						continue;
 					case 'a':
-						current_state = match(ci, "donly", STATE_READONLY);
+						if (*lexeme++ == 'd') {
+							current_state = STATE_READ;
+							continue;
+						}
+						current_state = STATE_UNRECOGNISED;
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1169,44 +1188,72 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_RET: 
-				return make_token(TOKEN_RET, input, NULL);
+				return make_token(TOKEN_RET, word, val);
+
+			case STATE_READ:
+				switch (*lexeme++) {
+					case 'n':
+						current_state = match(lexeme, "one", STATE_READNONE);
+						continue;
+					case 'o':
+						current_state = match(lexeme, "nly", STATE_READONLY);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+				return NULL;
+
+			case STATE_READNONE:
+				return make_token(TOKEN_READNONE, word, val);
 			case STATE_READONLY: 
-				return make_token(TOKEN_READONLY, input, NULL);
+				return make_token(TOKEN_READONLY, word, val);
 
 			case STATE_S: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'd':
-						current_state = match(ci, "iv", STATE_SDIV);
+						current_state = match(lexeme, "iv", STATE_SDIV);
 						continue;
 					case 'e':
 						current_state = STATE_SE;
 						continue;
 					case 'i':
-						current_state = match(ci, "tofp", STATE_SITOFP);
+						current_state = match(lexeme, "tofp", STATE_SITOFP);
+						continue;
+					case 'o':
+						current_state = match(lexeme, "urce_filename", STATE_SOURCE_FILENAME);
 						continue;
 					case 'g':
 						current_state = STATE_SG;
 						continue;
 					case 'h':
-						current_state = match(ci, "l", STATE_SHL);
+						current_state = match(lexeme, "l", STATE_SHL);
 						continue;
 					case 'l':
 						current_state = STATE_SL;
 						continue;
-					case 'r':
-						current_state = match(ci, "em", STATE_SREM);
+					case 'p':
+						current_state = match(lexeme, "eculatable", STATE_SPECULATABLE);
 						continue;
+					case 'r':
+						if (*lexeme++ == 'e') {
+							current_state = STATE_SRE;
+							continue;
+						}
+						current_state = STATE_UNRECOGNISED;
+						continue;
+						
 					case 't':
 						current_state = STATE_ST;
 						continue;
 					case 'u':
-						current_state = match(ci, "b", STATE_SUB);
+						current_state = match(lexeme, "b", STATE_SUB);
 						continue;
 					case 'w':
-						current_state = match(ci, "itch", STATE_SWITCH);
+						current_state = match(lexeme, "itch", STATE_SWITCH);
 						continue;
 					case 'y':
-						current_state = match(ci, "ncscope", STATE_SYNCSCOPE);
+						current_state = match(lexeme, "ncscope", STATE_SYNCSCOPE);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1214,15 +1261,15 @@ struct Token *tokenize(char* input) {
 				}
 			
 			case STATE_SITOFP: 
-				return make_token(TOKEN_SITOFP, input, NULL);
+				return make_token(TOKEN_SITOFP, word, val);
 
 			case STATE_SL:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "", STATE_SLE);
+						current_state = match(lexeme, "", STATE_SLE);
 						continue;
 					case 't':
-						current_state = match(ci, "", STATE_SLT);
+						current_state = match(lexeme, "", STATE_SLT);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1230,18 +1277,18 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_SDIV: 
-				return make_token(TOKEN_SDIV, input, NULL);
+				return make_token(TOKEN_SDIV, word, val);
 
 			case STATE_SE: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'l':
-						current_state = match(ci, "ect", STATE_SELECT);
+						current_state = match(lexeme, "ect", STATE_SELECT);
 						continue;
 					case 'x':
-						current_state = match(ci, "t", STATE_SEXT);
+						current_state = match(lexeme, "t", STATE_SEXT);
 						continue;
 					case 'q':
-						current_state = match(ci, "_cst", STATE_SEQ_CST);
+						current_state = match(lexeme, "_cst", STATE_SEQ_CST);
 						continue;
 					default: 
 						current_state = STATE_UNRECOGNISED;
@@ -1249,14 +1296,14 @@ struct Token *tokenize(char* input) {
 				};
 
 			case STATE_SELECT: 
-				return make_token(TOKEN_SELECT, input, NULL);
+				return make_token(TOKEN_SELECT, word, val);
 			case STATE_SEQ_CST: 
-				return make_token(TOKEN_SEQ_CST, input, NULL);
+				return make_token(TOKEN_SEQ_CST, word, val);
 			case STATE_SEXT: 
-				return make_token(TOKEN_SEXT, input, NULL);
+				return make_token(TOKEN_SEXT, word, val);
 
 			case STATE_SG:
-				switch (*ci++) {
+				switch (*lexeme++) {
 				case 't':
 					current_state = STATE_SGT;
 					continue;
@@ -1270,25 +1317,47 @@ struct Token *tokenize(char* input) {
 				break;
 
 			case STATE_SGT: 
-				return make_token(TOKEN_SGT, input, NULL);
+				return make_token(TOKEN_SGT, word, val);
 			case STATE_SGE: 
-				return make_token(TOKEN_SGE, input, NULL);
+				return make_token(TOKEN_SGE, word, val);
 			case STATE_SHL: 
-				return make_token(TOKEN_SHL, input, NULL);
+				return make_token(TOKEN_SHL, word, val);
 			case STATE_SLT: 
-				return make_token(TOKEN_SLT, input, NULL);
+				return make_token(TOKEN_SLT, word, val);
 			case STATE_SLE: 
-				return make_token(TOKEN_SLE, input, NULL);
+				return make_token(TOKEN_SLE, word, val);
+			case STATE_SOURCE_FILENAME:
+				return make_token(TOKEN_SOURCE_FILENAME, word, val);
+			case STATE_SPECULATABLE:
+				return make_token(TOKEN_SPECULATABLE, word, val);
+			case STATE_SRE:
+				switch (*lexeme++) {
+					case 't':
+						current_state = match(lexeme, "", STATE_SRET);
+						continue;
+					case 'm':
+						current_state = match(lexeme, "", STATE_SREM);
+						continue;
+				default:
+					current_state = STATE_UNRECOGNISED;
+					continue;
+				}
+				return NULL;
+				
+
 		    case STATE_SREM: 
-				return make_token(TOKEN_SREM, input, NULL);
+				return make_token(TOKEN_SREM, word, val);
+
+			case STATE_SRET:
+				return make_token(TOKEN_SRET, word, val);
 
 			case STATE_ST: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 				case 'a':
-					current_state = match(ci, "ck", STATE_STACK);
+					current_state = match(lexeme, "ck", STATE_STACK);
 					continue;
 				case 'o':
-					current_state = match(ci, "re", STATE_STORE);
+					current_state = match(lexeme, "re", STATE_STORE);
 					continue;
 				default: 
 					current_state = STATE_UNRECOGNISED;
@@ -1296,20 +1365,20 @@ struct Token *tokenize(char* input) {
 				}
 
 			case STATE_STACK: 
-				return make_token(TOKEN_STACK, input, NULL);
+				return make_token(TOKEN_STACK, word, val);
 			case STATE_STORE: 
-				return make_token(TOKEN_STORE, input, NULL);
+				return make_token(TOKEN_STORE, word, val);
 			case STATE_STRING: 
-				return make_token(TOKEN_STRING, input, NULL);
+				return make_token(TOKEN_STRING, word, val);
 			case STATE_SUB: 
-				return make_token(TOKEN_SUB, input, NULL);
+				return make_token(TOKEN_SUB, word, val);
 			case STATE_SWITCH: 
-				return make_token(TOKEN_SWITCH, input, NULL);
+				return make_token(TOKEN_SWITCH, word, val);
 			case STATE_SYNCSCOPE: 
-				return make_token(TOKEN_SYNCSCOPE, input, NULL);
+				return make_token(TOKEN_SYNCSCOPE, word, val);
 			
 			case STATE_DIGITS: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0':
 					case '1': case '2': case '3':
 					case '4': case '5': case '6':
@@ -1319,7 +1388,8 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_DIGITS_DOT;
 						continue;
 					case NULL:
-						return make_token(TOKEN_SZ, input, atoi(input));
+						val.ival = atoi(word.word);
+						return make_token(TOKEN_SZ, word, val);
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
@@ -1327,7 +1397,7 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_DIGITS_DOT:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0':
 					case '1': case '2': case '3':
 					case '4': case '5': case '6':
@@ -1341,7 +1411,7 @@ struct Token *tokenize(char* input) {
 				return NULL;
 			
 			case STATE_DIGITS_DOT_DIGITS:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0':
 					case '1': case '2': case '3':
 					case '4': case '5': case '6':
@@ -1357,7 +1427,7 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_DIGITS_DOT_DIGITS_E:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '+': case '-':
 						current_state = STATE_DIGITS_DOT_DIGITS_E_SIGN;
 						continue;
@@ -1367,7 +1437,7 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_DIGITS_DOT_DIGITS_E_SIGN:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0':
 					case '1': case '2': case '3':
 					case '4': case '5': case '6':
@@ -1381,7 +1451,7 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_DIGITS_DOT_DIGITS_E_SIGN_DIGITS:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case '0':
 					case '1': case '2': case '3':
 					case '4': case '5': case '6':
@@ -1397,42 +1467,65 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_FLOAT_LITERAL:
-				return make_token(TOKEN_FLOAT_LITERAL, input, 0XDEADBEEF);
+				val.fval = atol(word.word);
+				return make_token(TOKEN_FLOAT_LITERAL, word, val);
 
 			case STATE_T: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a':
-						current_state = match(ci, "il", STATE_TAIL);
+						current_state = STATE_TA;
 						continue;
 					case 'o':
-						current_state = match(ci, "", STATE_TO);
+						current_state = match(lexeme, "", STATE_TO);
 						continue;
 					case 'r':
 						current_state = STATE_TR;
 						continue;
 					case 'y':
-						current_state = match(ci, "p", STATE_TYP);
+						current_state = match(lexeme, "pe", STATE_TYPE);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
+				return NULL;
+
+			case STATE_TA:
+				switch (*lexeme++) {
+					case 'i':
+						current_state = match(lexeme, "l", STATE_TAIL);
+						continue;
+					case 'r':
+						current_state = match(lexeme, "get", STATE_TARGET);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+				return NULL;
 
 			case STATE_TAIL:
-				return make_token(TOKEN_TAIL, input, NULL);
+				return make_token(TOKEN_TAIL, word, val);
+			case STATE_TARGET:
+				return make_token(TOKEN_TARGET, word, val);
+
 			case STATE_TO:
-				return make_token(TOKEN_TO, input, NULL);
+				return make_token(TOKEN_TO, word, val);
 
 			case STATE_TR:
-				switch(*ci++) {
+				switch(*lexeme++) {
+
+					case 'i':
+						current_state = match(lexeme, "ple", STATE_TRIPLE);
+						continue;
 
 					case 'u':
-						switch (*ci++) {
+						switch (*lexeme++) {
 							case 'n':
-								current_state = match(ci, "c", STATE_TRUNC);
+								current_state = match(lexeme, "c", STATE_TRUNC);
 								continue;
 							case 'e':
-								current_state = match(ci, "", STATE_TRUE);
+								current_state = match(lexeme, "", STATE_TRUE);
 								continue;
 						}
 
@@ -1441,23 +1534,25 @@ struct Token *tokenize(char* input) {
 						continue;
 				}
 
+			case STATE_TRIPLE:
+				return make_token(TOKEN_TRIPLE, word, val);
 			case STATE_TRUNC: 
-				return make_token(TOKEN_TRUNC, input, NULL);
+				return make_token(TOKEN_TRUNC, word, val);
 			case STATE_TRUE: 
-				return make_token(TOKEN_TRUE, input, NULL);
-			case STATE_TYP: 
-				return make_token(TOKEN_TYP, input, NULL);
+				return make_token(TOKEN_TRUE, word, val);
+			case STATE_TYPE: 
+				return make_token(TOKEN_TYPE, word, val);
 
 			case STATE_U: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'd':
-						current_state = match(ci, "iv", STATE_UDIV);
+						current_state = match(lexeme, "iv", STATE_UDIV);
 						continue;
 					case 'g':
 						current_state = STATE_UG;
 						continue;
 					case 'i':
-						current_state = match(ci, "tofp", STATE_UITOFP);
+						current_state = match(lexeme, "tofp", STATE_UITOFP);
 						continue;
 					case 'l':
 						current_state = STATE_UL;
@@ -1466,7 +1561,10 @@ struct Token *tokenize(char* input) {
 						current_state = STATE_UN;
 						continue;
 					case 'r':
-						current_state = match(ci, "em", STATE_UREM);
+						current_state = match(lexeme, "em", STATE_UREM);
+						continue;
+					case 'w':
+						current_state = match(lexeme, "table", STATE_UWTABLE);
 						continue;
 					default: 
 						current_state = STATE_UNRECOGNISED;
@@ -1475,15 +1573,15 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_UITOFP: 
-				return make_token(TOKEN_UITOFP, input, NULL);
+				return make_token(TOKEN_UITOFP, word, val);
 
 			case STATE_UG:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'e':
-						current_state = match(ci, "", STATE_UGE);
+						current_state = match(lexeme, "", STATE_UGE);
 						continue;
 					case 't':
-						current_state = match(ci, "", STATE_UGT);
+						current_state = match(lexeme, "", STATE_UGT);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1492,24 +1590,27 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_UGE: 
-				return make_token(TOKEN_UGE, input, NULL);
+				return make_token(TOKEN_UGE, word, val);
 			case STATE_UDIV: 
-				return make_token(TOKEN_UDIV, input, NULL);
+				return make_token(TOKEN_UDIV, word, val);
 
 			case STATE_UN: 
-				switch (*ci++) {
+				switch (*lexeme++) {
+					case 'n':
+						current_state = match(lexeme, "amed_addr", STATE_UNNAMED_ADDR);
+						continue;
 					case 'd':
-						current_state = match(ci, "ef", STATE_UNDEF);
+						current_state = match(lexeme, "ef", STATE_UNDEF);
 						continue;
 					case 'e':
-						current_state = match(ci, "", STATE_UNE);
+						current_state = match(lexeme, "", STATE_UNE);
 						continue;
 					case 'r':
 						current_state = match(
-							ci, "eachable", STATE_UNREACHABLE);
+							lexeme, "eachable", STATE_UNREACHABLE);
 						continue;
 					case 'w':
-						current_state = match(ci, "ind", STATE_UNWIND);
+						current_state = match(lexeme, "ind", STATE_UNWIND);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1517,21 +1618,25 @@ struct Token *tokenize(char* input) {
 				}
 				return NULL;
 
+			case STATE_UNNAMED_ADDR:
+				return make_token(TOKEN_UNNAMED_ADDR, word, val);
 			case STATE_UNE: 
-				return make_token(TOKEN_UNE, input, NULL);
+				return make_token(TOKEN_UNE, word, val);
 			case STATE_UNDEF: 
-				return make_token(TOKEN_UNDEF, input, NULL);
+				return make_token(TOKEN_UNDEF, word, val);
 			case STATE_UNREACHABLE: 
-				return make_token(TOKEN_UNREACHABLE, input, NULL);
+				return make_token(TOKEN_UNREACHABLE, word, val);
 			case STATE_UNWIND: 
-				return make_token(TOKEN_UNWIND, input, NULL);
+				return make_token(TOKEN_UNWIND, word, val);
 			case STATE_UREM: 
-				return make_token(TOKEN_UREM, input, NULL);
+				return make_token(TOKEN_UREM, word, val);
+			case STATE_UWTABLE:
+				return make_token(TOKEN_UWTABLE, word, val);
 
 			case STATE_V: 
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'a':;
-						current_state = match(ci, "l", STATE_VAL);
+						current_state = match(lexeme, "l", STATE_VAL);
 						continue;
 					case 'o':;
 						current_state = STATE_VO;
@@ -1541,15 +1646,15 @@ struct Token *tokenize(char* input) {
 						continue;
 				}
 
-			case STATE_VAL: return make_token(TOKEN_VAL, input, NULL);
+			case STATE_VAL: return make_token(TOKEN_VAL, word, val);
 
 			case STATE_VO:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'l':
-						current_state = match(ci, "atile", STATE_VOLATILE);
+						current_state = match(lexeme, "atile", STATE_VOLATILE);
 						continue;
 					case 'i':
-						current_state = match(ci, "d", STATE_VOID);;
+						current_state = match(lexeme, "d", STATE_VOID);;
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
@@ -1558,37 +1663,73 @@ struct Token *tokenize(char* input) {
 				return NULL;
 
 			case STATE_VOLATILE: 
-				return make_token(TOKEN_VOLATILE, input, NULL);
+				return make_token(TOKEN_VOLATILE, word, val);
 			case STATE_VOID: 
-				return make_token(TOKEN_VOID, input, NULL);
+				return make_token(TOKEN_VOID, word, val);
 			
 			case STATE_X: 
-				return make_token(TOKEN_X, input, NULL);
+				return make_token(TOKEN_X, word, val);
 			case STATE_XOR: 
-				return make_token(TOKEN_XOR, input, NULL);
+				return make_token(TOKEN_XOR, word, val);
 			
+			case STATE_W:
+				switch (*lexeme++) {
+				case 'i':
+					current_state = match(lexeme, "llreturn", STATE_WILLRETURN);
+					continue;
+				case 'r':
+					current_state = match(lexeme, "iteonly", STATE_WRITEONLY);
+					continue;
+				default:
+					current_state = STATE_UNRECOGNISED;
+					continue;
+				}
+				return NULL;
+
+			case STATE_WILLRETURN:
+				return make_token(TOKEN_WILLRETURN, word, val);
 			case STATE_WRITEONLY: 
-				return make_token(TOKEN_WRITEONLY, input, NULL);
+				return make_token(TOKEN_WRITEONLY, word, val);
 
 			case STATE_ZE:
-				switch (*ci++) {
+				switch (*lexeme++) {
 					case 'r':
-						current_state = match(
-							ci, "oinitializer", STATE_ZEROINITIALIZER);
+						if (*lexeme++ == 'o') {
+							current_state = STATE_ZERO;
 							continue;
+						}
+						current_state = STATE_UNRECOGNISED;
+						continue;
 					case 'x':
 						current_state = match(
-							ci, "t", STATE_ZEXT);
+							lexeme, "t", STATE_ZEXT);
 						continue;
 					default:
 						current_state = STATE_UNRECOGNISED;
 						continue;
 				}
+				return NULL;
+
+			case STATE_ZERO:
+				switch (*lexeme++) {
+					case 'e':
+						current_state = match(lexeme, "xt", STATE_ZEROEXT);
+						continue;
+					case 'i':
+						current_state = match(lexeme, "nitializer", STATE_ZEROINITIALIZER);
+						continue;
+					default:
+						current_state = STATE_UNRECOGNISED;
+						continue;
+				}
+				return NULL;
 
 			case STATE_ZEROINITIALIZER: 
-				return make_token(TOKEN_ZEROINITIALIZER, input, NULL);
+				return make_token(TOKEN_ZEROINITIALIZER, word, val);
+			case STATE_ZEROEXT:
+				return make_token(TOKEN_ZEROEXT, word, val);
 			case STATE_ZEXT: 
-				return make_token(TOKEN_ZEXT, input, NULL);
+				return make_token(TOKEN_ZEXT, word, val);
 
 			default: /* invalid state */
 				current_state = STATE_UNRECOGNISED;
@@ -1607,266 +1748,26 @@ struct Token *tokenize(char* input) {
 * 
 * @see tokenize
 */
-void  tokenizer(char** input, token **output) {
+void  tokenizer(preprocessed_word** input, token **output) {
 	// For each word in input
-	char** lexemes = input;
-	char* lexeme = *lexemes++;
+	preprocessed_word** words = input;
+	preprocessed_word* word = *words++;
 	token** dest = output;
-	while (lexeme != NULL) {
+	while (word != NULL) {
 
 		if (DEBUG_TOKENIZER) {
-			printf("READ  : %-32s %8s", lexeme, " ");
+			printf("READ  : %-32s %8s", word->word, " ");
 		}
 
-		token *tk = tokenize(lexeme);
+		token *tk = tokenize(*word);
 		
 		if (DEBUG_TOKENIZER) {
 			printf("WROTE : %-32s\n",
 				lookup_token_as_name((*tk).name));
 		}
-		lexeme = *lexemes++;
+		word = *words++;
 		*dest++ = tk;
 	}
 	// Finish the tokens off with NULL
 	*dest = NULL;
-}
-
-/** 
-* Responsible for determining if the preprocessor should ignore these
-* input symbols. It differs from is_delimiter as whitespace is never
-* used in the output, while a delimiter may be the start of a 
-* new word and while constitute the next word.
-* 
-* @param chr The character which we validate as whitespace.
-*/
- bool is_whitespace(char chr) {
-	switch (chr) {
-		case ' ': case '\t': 
-		case '\n': case '\r':
-		case '\v': case '\f':
-		case EOF: case NULL:
-			return true;
-		default: 
-			return false;
-	}
-}
-
-/**
-* Responsible for informing the preprocessor as to if the word should 
-* finish and restart anew including this given symbol.
-*/
-bool is_delimiter(char chr) {
-	switch (chr) {
-		case '[': case ']': 
-		case '(': case ')':
-		case '<': case '>':
-		case '{': case '}':
-		case ',': case ';': 
-		case '*':
-			return true;
-		default: 
-			return false;
-	}
-}
-
-/* The various states used by the preprocessor */
-typedef enum preprocessor_state {
-	EXPECTING_WORD,		/* We expect a word to start (not started yet) */
-	IN_WORD,			/* A new word has already started				*/
-	IN_COMMENT,			/* We are in the middle of a comment			*/
-	ENCOUNTERED_WORD,	/* We have already encountered the full word	*/
-} preprocessor_state;
-
-/** 
-* Responsible for splitting an input string into 
-* substrings each containing a single word.
-* Assuming a well-formed input, one token
-* can be made from each word.
-* 
-* @param input The input to preprocess.
-* @param output The location to store the preprocessed output.
-* 
-* @see is_whitespace
-* @see is_delimiter
-*/
-void preprocessor(char* input, char **output) {
-	char buffer[PREPROCESSOR_WORD_SIZE];
-
-	long oi = 0, bi = 0; // output and buffer index
-	char* ci = input; // Character index
-	// For each character in input
-	bool in_identifier = false, in_whitespace = false;
-
-	preprocessor_state state = EXPECTING_WORD;
-
-	while ((*ci != NULL && *ci != EOF && ci != NULL) 
-		   || state != EXPECTING_WORD) {
-		
-		if (DEBUG_PREPROCESSOR) {
-			char* debug_msg = "Preprocessor : "
-				"Output Index = %d, "
-				"Buffer Index = %-3d, "
-				"Character Index = %-3d, "
-				"State = %d, "
-				"Character = %c\n";
-			printf(debug_msg, oi, bi, ci, state, *ci);
-		}
-
-		switch (state) {
-
-			case EXPECTING_WORD:
-
-				// Comments have highest precendence
-				if (*ci == ';') { 
-					ci++;
-					state = IN_COMMENT;
-					continue;
-				}
-				
-				// Identifiers have lower precedence than comments
-				if (*ci == '"') { 
-					in_identifier = true;
-					buffer[bi++] = *ci++;
-					state = IN_WORD;
-					continue;
-				}
-
-				if (is_whitespace(*ci)) {
-					ci++;
-					continue;
-				}
-
-				if (is_delimiter(*ci)) {
-					buffer[bi++] = *ci++;
-					state = ENCOUNTERED_WORD;
-					continue;
-				}
-
-				buffer[bi++] = *ci++;
-				state = IN_WORD;
-				continue;
-
-			case IN_WORD:
-
-				if (in_identifier) {
-
-					if (*ci == '"') {
-						in_identifier = false;
-					}
-					buffer[bi++] = *ci++;
-					continue;
-				}
-
-				if (*ci == '"') {
-					in_identifier = true;
-					buffer[bi++] = *ci++;
-					continue;
-				}
-				
-				if (*ci == ';') {
-					state = ENCOUNTERED_WORD;
-					continue;
-				}
-
-				if (is_whitespace(*ci)) {
-					state = ENCOUNTERED_WORD;
-					continue;
-				}
-
-				if (is_delimiter(*ci)) {
-					state = ENCOUNTERED_WORD;
-					continue;
-				}
-
-				buffer[bi++] = *ci++;
-				continue;
-
-			case IN_COMMENT:
-				if (*ci == '\n') {
-					state = EXPECTING_WORD;
-				}
-				ci++;
-				continue;
-
-			case ENCOUNTERED_WORD:
-				/* Copy the word as encountered so far into the output */
-				buffer[bi] = NULL;
-				int final_word_len = strlen(buffer) + 1;
-				char *final_word = malloc(final_word_len);
-				if (final_word == NULL) {
-					printf(
-						"Fatal Error : "
-						"Failed to allocate memory to store word %s.\n",
-						buffer);
-					return NULL;
-				}
-				strcpy_s(final_word, final_word_len, buffer);
-				final_word[final_word_len-1] = NULL;
-
-				output[oi++] = final_word;
-				bi = 0;
-				
-				state = EXPECTING_WORD;
-				continue;
-		}
-
-	}
-	/* Now we mark the end of the output with a NULL. */
-	output[oi] = NULL;
-}
-
-/** 
-* Reponsible for testing an individual case of tokenize and printing a short
-* report on the result.
-* 
-* @param gave The input we give the tokenize function.
-* @param expected The output we expect in terms of the tokens name.
-* 
-* @see tokenize
-*/
-void test_tokenize_case(char* gave, token_name expected) {
-	token *got = tokenize(gave);
-	printf("Gave %-16s expected %-22s got %-22s\n", 
-		gave, 
-		lookup_token_as_name(expected), 
-		lookup_token_as_name((*got).name));
-}
-
-/** 
-* Reponsible for testing many cases of tokenize and prints
-* a report on each result.
-*/
-void test_tokenize() {
-	for (token_name i = TOKEN_ADD; i < TOKEN_ZEXT; i++) {
-		test_tokenize_case(lookup_token_as_lexeme(i), i);
-	}
-}
-
-/**
-* Reponsible for printing a token and its contents.
-* 
-* @param tk the token to print
-*/
-void print_token(token** tk) {
-	char* field_format = "%-24s\t%-16s\t%-8d\n";
-	printf(field_format,
-		lookup_token_as_name((**tk).name),
-		(**tk).lexeme,
-		(**tk).value);
-}
-
-/** 
-* Responsible for printing a given list of pointers to tokens, 
-* including all of their field contents.
-* 
-* @param tokens 
-*/
-void print_token_list(token **tokens) {
-	token **tk = tokens;
-	char* header_format = "%-24s\t%-16s\t%-8s\n";
-	printf(header_format, "Token Name", "Token Lexeme", "Token Value");
-	printf(header_format, "----------", "------------", "-----------");
-	while (*tk != NULL) {
-		print_token(tk++);
-	};
 }

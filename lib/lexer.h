@@ -9,22 +9,17 @@
 
 #include "tokens.h"
 
-#define lookup_token_as_name(a) token_name_lookup[a][0]
-#define lookup_token_as_lexeme(a) token_name_lookup[a][1]
-
-#define PREPROCESSOR_WORD_SIZE (1 << 10)
-
-#define DEBUG_PREPROCESSOR false
 #define DEBUG_TOKENIZE false
 #define DEBUG_TOKENIZER false
 
 /* states represents the states that the lexer can have.
 *  where possible, each state is named according to the
 *  symbols encountered up to that point.
-* e.g.	STATE_BI means 'b' and 'i' was read.
-*	however this has some exceptions,
-* e.g.	STATE_INTEGERTYPE does not mean read "integertype" but
-*		instead means read an integertype iX for some number x.
+*  
+*	e.g.	STATE_BI means 'b' and 'i' was read.
+*			however this has some exceptions,
+*	e.g.	STATE_INTEGERTYPE does not mean read "integertype" but
+*			instead means read an integertype iX for some number x.
 */
 typedef enum {
 	BEGIN_STATE,
@@ -36,10 +31,14 @@ typedef enum {
 	STATE_AL,
 	STATE_ALIGN,
 	STATE_ALLOCA,
+	STATE_AN,
 	STATE_AND,
+	STATE_ANY,
+	STATE_ARGMEMONLY,
 	STATE_AS,
 	STATE_ASM,
 	STATE_ASHR,
+	STATE_ATTRIBUTES,
 	STATE_B,
 	STATE_BI,
 	STATE_BIGENDIAN,
@@ -54,9 +53,13 @@ typedef enum {
 	STATE_CLOSE_CURLY_BRACKET,
 	STATE_CLOSE_BRACKET,
 	STATE_CMPXCHG,
+	STATE_CO,
+	STATE_CONSTANT,
 	STATE_COMMA,
 	STATE_COMDAT,
+	STATE_CSTRING,
 	STATE_D,
+	STATE_DATALAYOUT,
 	STATE_DE,
 	STATE_DECLARE,
 	STATE_DEFINE,
@@ -76,6 +79,7 @@ typedef enum {
 	STATE_EQUALS,
 	STATE_EX,
 	STATE_EXACT,
+	STATE_EXCLAMATION_MARK,
 	STATE_EXTRACTVALUE,
 	STATE_F,
 	STATE_FA,
@@ -118,6 +122,9 @@ typedef enum {
 	STATE_LI,
 	STATE_LITTLEENDIAN,
 	STATE_LINKONCE_ODR,
+	STATE_LLVM_,
+	STATE_LLVM_IDENT,
+	STATE_LLVM_MODULE_FLAGS,
 	STATE_LOAD,
 	STATE_LSHR,
 	STATE_M,
@@ -129,7 +136,10 @@ typedef enum {
 	STATE_NE,
 	STATE_NO,
 	STATE_NOALIAS,
+	STATE_NOBUILTIN,
 	STATE_NOCAPTURE,
+	STATE_NOINLINE,
+	STATE_NOUNWIND,
 	STATE_NSW,
 	STATE_NU,
 	STATE_NUW,
@@ -140,6 +150,9 @@ typedef enum {
 	STATE_OPEN_PAREN,
 	STATE_O,
 	STATE_OEQ,
+	STATE_OP,
+	STATE_OPAQUE,
+	STATE_OPTNONE,
 	STATE_OR,
 	STATE_OG,
 	STATE_OGE,
@@ -152,10 +165,13 @@ typedef enum {
 	STATE_P,
 	STATE_PERSONALITY,
 	STATE_PHI,
+	STATE_PRIVATE,
 	STATE_PTR,
 	STATE_PTRTOINT,
 	STATE_RE,
 	STATE_RET,
+	STATE_READ,
+	STATE_READNONE,
 	STATE_READONLY,
 	STATE_S,
 	STATE_STRING,
@@ -172,7 +188,11 @@ typedef enum {
 	STATE_SL,
 	STATE_SLE,
 	STATE_SLT,
+	STATE_SOURCE_FILENAME,
+	STATE_SPECULATABLE,
+	STATE_SRE,
 	STATE_SREM,
+	STATE_SRET,
 	STATE_ST,
 	STATE_STACK,
 	STATE_STORE,
@@ -181,12 +201,15 @@ typedef enum {
 	STATE_SYNCSCOPE,
 	STATE_SZ,
 	STATE_T,
+	STATE_TA,
 	STATE_TAIL,
+	STATE_TARGET,
 	STATE_TO,
 	STATE_TR,
+	STATE_TRIPLE,
 	STATE_TRUNC,
 	STATE_TRUE,
-	STATE_TYP,
+	STATE_TYPE,
 	STATE_U,
 	STATE_UITOFP,
 	STATE_UG,
@@ -197,11 +220,13 @@ typedef enum {
 	STATE_ULT,
 	STATE_UDIV,
 	STATE_UN,
+	STATE_UNNAMED_ADDR,
 	STATE_UNE,
 	STATE_UNDEF,
 	STATE_UNREACHABLE,
 	STATE_UNWIND,
 	STATE_UREM,
+	STATE_UWTABLE,
 	STATE_V,
 	STATE_VAL,
 	STATE_VO,
@@ -209,13 +234,15 @@ typedef enum {
 	STATE_VOLATILE,
 	STATE_X,
 	STATE_XOR,
+	STATE_W,
+	STATE_WILLRETURN,
 	STATE_WRITEONLY,
 	STATE_ZE,
 	STATE_ZEROINITIALIZER,
+	STATE_ZERO,
+	STATE_ZEROEXT,
 	STATE_ZEXT
 } state;
-
-char* token_name_lookup[][2];
 
 struct Token* make_token(token_name, char*, int);
 state match(char*, char*, state);
