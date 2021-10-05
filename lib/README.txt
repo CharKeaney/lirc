@@ -11,7 +11,7 @@ _______________________________________________________________________________
 ◆ Project Goal
 	
 	◇ To create a system capable of converting source code from one language
-       to another quickly and easily. This system is different from other 
+           to another quickly and easily. This system is different from other 
 	   systems in that it should be language independent, allowing for free 
 	   translation between any two accepted languages. I.e. C to Java, Java to 
 	   JavaScript, JavaScript to C etc. 
